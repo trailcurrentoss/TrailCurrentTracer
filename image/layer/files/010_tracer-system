@@ -1,0 +1,62 @@
+# Tracer OS — narrow privilege grant for the two OS settings that polkit
+# cannot cover.
+#
+# THIS FILE IS A TEMPLATE. `@TRACER_USER@` is replaced with the device account
+# name at install time — by image/layer/tracer-base.yaml for a real image, and
+# by scripts/dev-provision.sh for a hand-provisioned dev board. The account is
+# chosen when the image is built and is deliberately NOT baked in here; see
+# image/build.sh.
+#
+# As a consequence this file does NOT pass `visudo -c` as it sits in the repo:
+# `@TRACER_USER@` is not a valid user name. Validate the SUBSTITUTED copy, not
+# the template. Both installers do exactly that.
+#
+# WHY THIS EXISTS ALONGSIDE A POLKIT RULE
+# ---------------------------------------
+# Time zone, clock and locale go through systemd's D-Bus interfaces, and are
+# granted in 50-tracer-timedate.rules. These two are different: they are plain
+# binaries with no D-Bus interface, so polkit has nothing to authorize and
+# sudo is the only mechanism available.
+#
+#   tracer-locale-gen
+#                 Debian ships almost no generated locales (this image starts
+#                 with two). localectl set-locale will happily accept a LANG
+#                 that was never generated, and the result is a system that
+#                 falls back to C at next boot with no error shown anywhere.
+#                 Selecting a locale therefore has to be able to generate it.
+#
+#                 NOT plain locale-gen. Debian's locale-gen takes no locale
+#                 argument — it regenerates whatever is uncommented in
+#                 /etc/locale.gen and exits 0 regardless, so granting it
+#                 directly reads as working and silently generates nothing.
+#                 Adding a locale means editing /etc/locale.gen as root, and
+#                 that edit is confined to the wrapper rather than granted as
+#                 a general write into /etc. The wrapper validates its one
+#                 argument against /usr/share/i18n/SUPPORTED and verifies the
+#                 locale really exists afterwards, so the loose glob below is
+#                 constrained by the script, not by the sudoers pattern.
+#
+#   raspi-config  The WiFi regulatory domain lives in firmware/wpa_supplicant
+#                 state, not in NetworkManager, so `nonint do_wifi_country` is
+#                 the supported way to set it. The wrong region silently
+#                 removes legal channels — an AP on channel 12/13 simply never
+#                 appears in a scan, which looks like a broken radio.
+#
+# SCOPE
+# Each entry names an absolute path. The raspi-config entry is pinned to the
+# one non-interactive function and a two-letter argument so it cannot be used
+# to reach the rest of raspi-config. This is not a general sudo grant and must
+# not become one: nothing here may write to the rootfs or install software.
+#
+# Installed 0440 root:root. Validate with `visudo -c -f` before shipping — a
+# malformed file in /etc/sudoers.d can lock sudo out entirely.
+
+Cmnd_Alias TRACER_LOCALE_GEN = /usr/local/sbin/tracer-locale-gen *
+# Read as well as write. The region is not reported by `iw reg get` or by
+# nmcli on this board, so raspi-config is the only way to show the operator
+# what the current setting actually is — and a settings row that cannot
+# display its own value is worse than no row at all.
+Cmnd_Alias TRACER_WIFI_REGION = /usr/bin/raspi-config nonint get_wifi_country, \
+                                /usr/bin/raspi-config nonint do_wifi_country [A-Z][A-Z]
+
+@TRACER_USER@ ALL=(root) NOPASSWD: TRACER_LOCALE_GEN, TRACER_WIFI_REGION

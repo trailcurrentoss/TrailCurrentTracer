@@ -1,0 +1,38 @@
+# Tracer OS image configuration (rpi-image-gen)
+#
+# Raspberry Pi 5 image that boots straight into the Tracer diagnostic GUI.
+# No desktop, no window manager, no login prompt.
+#
+# Debian 13 (trixie) — matches the kernel/userland already verified on the
+# hardware (6.18.x +rpt-rpi-2712). rpi-image-gen ships a trixie base that
+# already targets rpi5, so no base bump is needed.
+#
+# Storage: single microSD or NVMe. Root is read-only with an overlay at
+# runtime; /var/lib/tracer is the only writable partition. See docs/boot.md.
+
+include:
+  file: trixie-minbase.yaml
+
+device:
+  layer: rpi5
+  hostname: tracer
+
+image:
+  layer: image-rpios
+  name: tracer-os
+  boot_part_size: 200%
+  # Chromium and its dependencies dominate the rootfs. 200% (double the raw
+  # chroot size) leaves headroom for the 16 KB block rounding that inflates
+  # on-disk usage well beyond `du -sk` when there are many small files.
+  root_part_size: 200%
+
+layer:
+  base: tracer-base
+  splash: rpi-splash-screen
+
+# Boot splash. Generate the TGA first:  ./generate-splash.sh
+# 640x480 to match the panel's native mode — see docs/hardware.md.
+splash:
+  image_path: splash/tracer-splash.tga
+  skip_image_checks: n
+  update_cmdline: y

@@ -1,0 +1,48 @@
+/* Let Tracer scan for and join WiFi networks without a polkit prompt.
+ *
+ * WHY THIS EXISTS
+ * ---------------
+ * NetworkManager gates `wifi.scan` behind polkit. Without this rule an
+ * unprivileged caller gets:
+ *
+ *     Error: org.freedesktop.NetworkManager.wifi.scan request failed:
+ *            not authorized.
+ *
+ * nmcli then falls back to serving whatever is in its cache, so the network
+ * list looks like it worked but only ever shows the already-connected SSID.
+ * The failure is silent unless the exit code is checked — which is exactly
+ * how "the scan shows no other networks" happens.
+ *
+ * Tracer is a single-purpose handheld with no multi-user story: the operator
+ * holding it is the only user, and joining a vehicle's WiFi is the device's
+ * first job. A polkit prompt on a 3.5" screen with no on-screen keyboard is
+ * not an option, and the boot flow blocks until a network is joined.
+ *
+ * Scope is deliberately narrow — WiFi scanning and connection management for
+ * the `netdev` group only. It does NOT grant general NetworkManager control,
+ * and it grants nothing to other groups.
+ */
+
+polkit.addRule(function (action, subject) {
+    if (!subject.isInGroup("netdev")) {
+        return polkit.Result.NOT_HANDLED;
+    }
+
+    var allowed = [
+        // Request a fresh AP sweep. Without this the list is a stale cache.
+        "org.freedesktop.NetworkManager.wifi.scan",
+        // Bring a connection up/down (joining the chosen network).
+        "org.freedesktop.NetworkManager.network-control",
+        "org.freedesktop.NetworkManager.enable-disable-wifi",
+        // Save the chosen network so it reconnects on the next boot, and
+        // read back its stored secrets to avoid re-prompting for a known key.
+        "org.freedesktop.NetworkManager.settings.modify.own",
+        "org.freedesktop.NetworkManager.settings.modify.system",
+    ];
+
+    if (allowed.indexOf(action.id) !== -1) {
+        return polkit.Result.YES;
+    }
+
+    return polkit.Result.NOT_HANDLED;
+});

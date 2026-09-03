@@ -1,0 +1,68 @@
+[Unit]
+Description=Tracer system daemon
+Documentation=file:///opt/tracer/docs/api.md
+# network-pre, NOT network-online: tracerd must start and serve an
+# "unavailable" network state instantly rather than blocking boot on a WiFi
+# association that may never happen. Waiting here is the easiest way to blow
+# the 12 s budget in the field. See docs/boot.md.
+After=network-pre.target dbus.service
+Wants=network-pre.target
+Before=tracer-ui.service
+
+[Service]
+Type=notify
+NotifyAccess=main
+# Runs as the device user, NOT root. It needs exactly three privileges, all
+# granted by group membership plus one polkit rule:
+#   input  -> read /dev/input/event0 (the keyboard)
+#   netdev -> NetworkManager scan/connect, via 49-tracer-networkmanager.rules
+#   video  -> DRM/backlight if a backlight device ever appears
+# A daemon serving a browser has no business being root.
+#
+# @TRACER_USER@ is substituted with the device account name when the image is
+# built (image/layer/tracer-base.yaml). The account is chosen at build time —
+# see image/build.sh — so it must not be hardcoded here, or an image built
+# with any other username would install units that cannot start.
+User=@TRACER_USER@
+Group=@TRACER_USER@
+SupplementaryGroups=input netdev video i2c gpio dialout
+
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=TRACER_STATE=/var/lib/tracer
+WorkingDirectory=/opt/tracer/tracerd
+ExecStart=/usr/bin/python3 -m tracerd --port 8710 --ui-dir /opt/tracer/tracer-ui
+
+Restart=always
+RestartSec=1
+
+# Shutdown must be bounded. This unit hit the 90 s systemd default on a real
+# power-off: the SIGTERM handler fired and logged "shutting down", then
+# hub.stop_all() never returned, so the panel went black and the unit sat
+# apparently dead for a minute and a half before systemd SIGKILLed it. To an
+# operator that is indistinguishable from "the power button does nothing".
+#
+# The daemon-side hang is fixed (hub.stop_all and Module.stop are both bounded
+# now), but this stays as the backstop: no future module may cost the user a
+# 90 s wait, whatever it does in its stop path.
+TimeoutStopSec=10
+
+# The only writable location. Root stays read-only; /var/log is tmpfs.
+StateDirectory=tracer
+ReadWritePaths=/var/lib/tracer
+
+# Hardening. Loopback-only bind is the authorization model, so keep the
+# process from reaching anything it does not need.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+
+[Install]
+WantedBy=multi-user.target

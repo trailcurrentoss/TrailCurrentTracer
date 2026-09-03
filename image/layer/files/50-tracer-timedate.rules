@@ -1,0 +1,62 @@
+/* Let Tracer set the clock, time zone and locale without a polkit prompt.
+ *
+ * WHY THIS EXISTS
+ * ---------------
+ * The device boots straight into a full-screen kiosk. There is no desktop,
+ * no terminal emulator and no login prompt, so an operator has no other way
+ * to correct a time zone or locale — the alternative is SSH from a laptop,
+ * which is exactly the situation this product exists to avoid.
+ *
+ * Without this rule the Settings screen can DISPLAY these values but never
+ * change them. Both timedatectl and localectl fail with:
+ *
+ *     Failed to set time zone: Interactive authentication required.
+ *
+ * That failure goes to stderr and the exit status is easy to lose in a pipe,
+ * so it reads as "the setting silently does nothing" — the same shape of bug
+ * as the WiFi scan cache described in 49-tracer-networkmanager.rules.
+ *
+ * WHY THE CLOCK MATTERS BEYOND CONVENIENCE
+ * A wrong clock breaks TLS to the Headwaters broker (certificate not yet
+ * valid), and it makes captured sessions and log timestamps impossible to
+ * line up against Headwaters' own logs. Setting the time is a diagnostic
+ * prerequisite, not a preference.
+ *
+ * SCOPE
+ * Narrow by construction: the two systemd interfaces that own the clock and
+ * the locale, granted only to the account the daemon runs as. It grants no
+ * general system control. Note that locale CHANGES may also require
+ * locale-gen, which is a plain binary with no D-Bus interface and therefore
+ * cannot be covered here — see the image layer for how that is handled.
+ */
+
+/* @TRACER_USER@ is substituted with the device account at install time — by
+ * image/layer/tracer-base.yaml for an image, by scripts/dev-provision.sh for a
+ * dev board. The account is chosen when the image is built and must never be
+ * baked in here: a name that does not match the running account makes every
+ * rule below return NOT_HANDLED, and the Settings rows for time zone, clock
+ * and locale then render and silently do nothing. */
+polkit.addRule(function (action, subject) {
+    if (subject.user !== "@TRACER_USER@") {
+        return polkit.Result.NOT_HANDLED;
+    }
+
+    var allowed = [
+        // Time zone, and whether the RTC is interpreted as local time.
+        "org.freedesktop.timedate1.set-timezone",
+        "org.freedesktop.timedate1.set-local-rtc",
+        // Manual clock set. Only reachable once NTP is turned off.
+        "org.freedesktop.timedate1.set-time",
+        // Toggle automatic time (systemd-timesyncd).
+        "org.freedesktop.timedate1.set-ntp",
+        // System locale (LANG) and the console/X11 keymap that goes with it.
+        "org.freedesktop.locale1.set-locale",
+        "org.freedesktop.locale1.set-keyboard",
+    ];
+
+    if (allowed.indexOf(action.id) !== -1) {
+        return polkit.Result.YES;
+    }
+
+    return polkit.Result.NOT_HANDLED;
+});

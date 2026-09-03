@@ -1,0 +1,240 @@
+# Tracer OS
+
+A Raspberry Pi 5 image that boots straight into a full-screen, button-driven
+diagnostic GUI for TrailCurrent vehicle deployments. No desktop, no window
+manager, no login prompt — power on, splash, launcher.
+
+The device is a field tool: a technician opens it next to an RV, joins the
+vehicle's WiFi, and inspects MQTT traffic, CAN frames, mDNS device discovery,
+Headwaters container health, GNSS fix, and firmware staging.
+
+Runs on a **Waveshare PocketTerm35** — Pi 5, 3.5" 640×480 HDMI panel with Goodix
+GT911 capacitive touch, and a carrier-board RP2040 providing keyboard and mouse
+over USB HID.
+
+---
+
+## Status: boots to a working launcher on real hardware.
+
+`tracerd` serves the API and the twelve-app launcher renders and navigates, on
+the device and on a laptop. The individual app screens are next.
+
+### Run it
+
+```bash
+make mock     # laptop, no hardware — http://127.0.0.1:8710/?dev
+make dev      # push to the live board and restart tracerd (seconds, no rebuild)
+make dev-logs # tail its log
+```
+
+`make dev` is the loop to use while iterating on the GUI — the UI is pure
+JavaScript ES modules with **no build step**, so deploying is a file copy and a
+browser refresh, not a 30-45 minute image build.
+
+#### Pointing the dev scripts at your board
+
+The first `make dev` asks for the board's SSH address and offers to save it to
+`scripts/dev.env`, which is **gitignored**. There is no default: a board's
+address belongs to the bench it sits on, and a value committed here would aim
+every other clone at a machine on someone else's network.
+
+Override it per run, or supply it where there is no prompt (CI, cron):
+
+```bash
+make dev ARGS="--device user@host"     # argument
+TRACER_DEVICE=user@host make dev       # environment
+```
+
+Settings are documented in [`scripts/dev.env.example`](scripts/dev.env.example).
+Never put a credential in `dev.env` — `TRACER_KEY` is a *path* to a key, and the
+board's `sudo` password is typed into `sudo`'s own prompt on the board.
+
+#### Provisioning a dev board
+
+`make dev` deploys the **application** only. It deliberately runs unprivileged
+under `~/tracer-dev`, so everything the *image* installs as root — polkit rules,
+the sudoers drop-in, the locale helper, generated locales — is absent on a board
+that was set up by hand rather than flashed.
+
+That gap does not announce itself. The Settings rows for time zone and locale
+render and then quietly fail, and the fault reproduces only on an
+under-provisioned board, never on a real image.
+
+```bash
+make dev-check      # read-only: does this board match the image? changes nothing
+make dev-provision  # install the image's system files (prompts for sudo ON THE BOARD)
+```
+
+`dev-check` tests **capabilities, not files** — `pkcheck` for the polkit actions
+and `sudo -n -l` for the grants — because `/etc/polkit-1/rules.d` is mode 0750
+and unreadable to the account these run as, and because a rule that is present
+but malformed grants nothing while still existing.
+
+**Implemented:**
+
+- `tracerd` — asyncio daemon, **standard library only**, no pip dependencies.
+  WebSocket + REST on `127.0.0.1:8710`, per-module state machine implementing
+  the degradation contract, and the `input` module reading the real keyboard.
+- `tracer-ui` — boot screen, status bar, hint bar, and the twelve-app launcher.
+  Pure JavaScript, no framework, no build step, offline Ionicons subset.
+**Verified on the board** (not just on a laptop):
+
+- Launcher renders on the panel; D-pad navigates, A opens, B returns. The full
+  input chain is confirmed end to end: physical keys → evdev `event0` → the
+  captured keymap → WebSocket → GUI.
+- `input`, `net`, `logs`, `headwaters` report real values; `mqtt`, `discovery`,
+  `can`, `gnss`, `power` correctly report unavailable and render as `--`.
+  Nothing is fabricated.
+
+**Not yet verified: touch.** Acceptance criterion 2 requires every app to be
+fully operable by touch *alone*, independently of the buttons — and that is the
+device's only recovery path when the RP2040 strands itself in BOOTSEL and every
+button dies. The tiles have tap handlers and the GT911 enumerates at
+`/dev/input/event7`, but no one has actually tapped the panel yet.
+
+**Also implemented:**
+
+- **Network app** — four stat tiles and five live reachability checks
+  (mDNS resolve, ICMP, MQTT 8883, Backend API 443, Farwatch cloud bridge), all
+  real probes. Verified on the board against a live Headwaters.
+- **Blocking WiFi gate** — with no association the launcher is unreachable:
+  scan, pick, type the password on the physical keyboard, connect. Without a
+  network the device cannot reach a broker, Headwaters, or any module, so this
+  is a precondition rather than a setting. *Full connect flow still to be
+  validated on a fresh image with no saved credentials.*
+- **Light and dark themes**, switchable from settings, applied live with no
+  reload. The light theme re-picks every status colour rather than inverting —
+  the dark palette's near-neon `#74FE00` / `#48E6FE` are illegible on white.
+- **Grouped, searchable settings** in the daemon, matching the Headwaters PWA's
+  `{meta, searchIndex: [{label, kw, anchor}]}` contract so the two feel the
+  same. The Settings *screen* is not built yet.
+- **`--force-unavailable MOD`** fault injection, so acceptance criterion 3
+  ("pull the CAN adapter, kill the broker, unplug WiFi") is testable without
+  physically pulling hardware.
+
+**Next:** the remaining app screens, in the build plan's order.
+
+**Also done and verified against real hardware:**
+
+- [docs/hardware.md](docs/hardware.md) — panel, touch, input, and CAN, each
+  backed by a command whose output is quoted. Five divergences from the original
+  build plan, resolved.
+- [docs/api.md](docs/api.md) — **the daemon↔UI schema. This is what needs
+  review.** Data shapes are transcribed from the Headwaters sources, not invented.
+- [docs/controls.md](docs/controls.md) — button and touch model.
+- [docs/boot.md](docs/boot.md) — boot chain to the 12 s target, with a
+  justification for every trimmed systemd unit.
+- [image/overlays/tracer-gt911-overlay.dts](image/overlays/tracer-gt911-overlay.dts)
+  — compiles clean; removes two `err`-level lines from every boot.
+- [tracerd/keymap.default.json](tracerd/keymap.default.json) — the button mapping,
+  **captured from hardware**, two matching passes.
+- [image/generate-splash.sh](image/generate-splash.sh) — 640×480 boot splash,
+  Headwaters composition with the Tracer icon. Renders correctly.
+- [docs/building.md](docs/building.md) — **how to compile and flash the image.**
+  `image/build.sh` + `rpi-image-gen` config and layer. `sudo make image`.
+
+**Not started:** the individual app screens, mocks, tests.
+
+The image build does not yet install `tracerd`/`tracer-ui`, so a flashed image
+still boots to the splash and then a blank screen. Use `make dev` to run the real
+thing on the board until that hook lands.
+
+### Decisions settled
+
+- **Image tool: `rpi-image-gen`**, reusing the Headwaters setup rather than
+  standing up pi-gen. One toolchain across TrailCurrent.
+- **Splash: static TGA, Headwaters-style, Tracer icon.** Not Plymouth. This
+  knowingly deviates from the mock's animated boot screen — see
+  [boot.md](docs/boot.md#3-splash) for what that costs and why it was chosen.
+- **State updates: resend whole lists, diff only the MQTT topic tree.**
+- **No on-screen keyboard, anywhere.** The device has a real QWERTY keyboard;
+  every text field takes physical input. See
+  [controls.md](docs/controls.md#no-on-screen-keyboard--decided).
+
+### Still open
+
+[api.md](docs/api.md#open-questions-for-review) — three remaining questions,
+mostly about log volume and firmware push scope. The contract itself is ready to
+review.
+
+---
+
+## The headline hardware findings
+
+Two of these change the build materially.
+
+**The panel is HDMI, not DPI or SPI.** The original plan flagged this as the
+decision that would change the display path most. It resolves the easy way: the
+connector reports 640×480 as its native mode and stock `vc4-kms-v3d` drives it.
+No `fbcp-ili9341`, no tinydrm, nothing in the boot critical path. Waveshare's
+`waveshare-35dpi-*` overlays contain **only** a touch controller and no display
+node at all — the `dpi` in the name is simply wrong, and their own Software Guide
+configures no display settings whatsoever.
+
+**There is no gamepad.** The HID report descriptor declares a keyboard, a mouse,
+and a consumer-control collection — no Gamepad or Joystick usage exists. The
+A/B/X/Y/D-pad model in the design mock is an interaction abstraction, and
+`tracerd.input` implements it as a keycode→button keymap over evdev. The GUI
+contract is unchanged: it still receives only logical buttons, never keycodes.
+
+Captured from hardware, the buttons are the arrow cluster plus the literal letter
+keys **A B X Y L R**, with Pause and PrintScreen as Start and Select. There are no
+physical shoulder buttons. Two consequences fall straight out of that:
+
+- **Input has to be modal.** Six buttons are letters the operator also needs to
+  type. In nav mode they are swallowed as buttons; in text mode they pass through.
+  Start and Select are the only non-typeable buttons, which makes them the only
+  possible universal escape from text mode.
+- **`kernel.sysrq=0` is mandatory.** Select is `KEY_SYSRQ` and the stock unit runs
+  `kernel.sysrq=438`, which has reboot and poweroff enabled. An Alt-plus-Select
+  chord would hard-reboot the device without syncing — a self-inflicted power cut
+  on the button that opens the status sheet.
+
+**And a field-reliability consequence worth knowing about:** the buttons, the
+mouse, and the speaker amplifier all hang off one RP2040 whose BOOT and RESET
+buttons are exposed on the back of the case. A double-tap of RESET drops it into
+BOOTSEL and every button dies at once (recovery is `picotool reboot -a`, not a
+power cycle). The GT911 is on I2C and is unaffected — which makes complete touch
+parity the device's only recovery path, not a nicety.
+
+---
+
+## Layout
+
+```
+tracerd/       Python daemon, stdlib only — modules/ one per subsystem
+  tools/       capture_keymap.py — re-capture button codes from hardware
+tracer-ui/     Pure JS ES modules, no build step — src/apps/, src/chrome/, src/store/
+scripts/       dev-deploy.sh    — push the app to the live board
+  dev-provision.sh               — install the image's system files on a dev board
+  dev-env.sh                     — resolves which board (arg > env > dev.env > prompt)
+  dev.env.example                — template; the real dev.env is gitignored
+image/         Image build (rpi-image-gen) — see docs/building.md
+  config/      tracer-os.yaml — image config
+  layer/       tracer-base.yaml — packages + boot config + unit trimming
+  overlays/    tracer-gt911-overlay.dts — derived, 0x14 node removed
+  vendor/      Unmodified Waveshare .dtbo blobs + PROVENANCE.md
+  build.sh     the wrapper you actually run
+mock/          Fixtures and synthetic traffic generators
+docs/          hardware.md, api.md, controls.md, boot.md, building.md
+design/        The .dc.html mock — the authoritative visual reference
+```
+
+## The design mock is the spec
+
+[design/PocketTerm35 OS v2.dc.html](design/) is authoritative for layout, colour,
+type size, scroll behaviour, and per-app button semantics. Open it in a browser —
+it is interactive, and arrow keys plus Enter/Esc/X/Y drive it. Lift values from
+it verbatim rather than approximating them.
+
+Colours, type, and shape come from the TrailCurrent design system. Dark theme
+only; flat backgrounds; glow (`0 0 20px rgba(82,164,65,0.5)`) exclusively on
+engaged state. Ionicons only, bundled — the device is offline.
+
+## Related repositories
+
+- `TrailCurrentHeadwaters` — MQTT topic maps, discovery records, the CAN bridge,
+  and the `rpi-image-gen` build this one is modelled on. Tracer also reads
+  container state and pulls logs from a Headwaters box over SSH/SCP.
+- `TrailCurrentDocumentation` — `TrailCurrent.dbc`, the fleet CAN database
+  (88 messages, 258 signals) that drives the sniffer's decode layer.

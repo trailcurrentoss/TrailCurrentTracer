@@ -1,0 +1,61 @@
+{
+  "_comment": [
+    "Default PocketTerm35 keymap. CAPTURED FROM HARDWARE 2026-09-01, not guessed.",
+    "Two independent passes over all 12 controls produced identical codes.",
+    "Method: docs/controls.md#capturing-the-real-mapping.",
+    "",
+    "Seeds /var/lib/tracer/settings.json on first boot. Once seeded, the live",
+    "file wins — edit the mapping from Settings > Button mapping, not here.",
+    "",
+    "hid_usage is recorded for provenance: it is the raw USB HID usage the",
+    "RP2040 sends, so a firmware change on the Pico is diagnosable by comparing",
+    "against it rather than guessing why a button moved."
+  ],
+
+  "device": {
+    "match": { "vendor": "0x1209", "product": "0x0001", "name": "My Company My Custom Pico Keyboard" },
+    "path_hint": "/dev/input/event0"
+  },
+
+  "buttons": {
+    "dpad_up":    { "code": 103, "key": "KEY_UP",    "hid_usage": "0x70052", "typeable": false },
+    "dpad_down":  { "code": 108, "key": "KEY_DOWN",  "hid_usage": "0x70051", "typeable": false },
+    "dpad_left":  { "code": 105, "key": "KEY_LEFT",  "hid_usage": "0x70050", "typeable": false },
+    "dpad_right": { "code": 106, "key": "KEY_RIGHT", "hid_usage": "0x7004f", "typeable": false },
+
+    "a": { "code": 30, "key": "KEY_A", "hid_usage": "0x70004", "typeable": true },
+    "b": { "code": 48, "key": "KEY_B", "hid_usage": "0x70005", "typeable": true },
+    "x": { "code": 45, "key": "KEY_X", "hid_usage": "0x7001b", "typeable": true },
+    "y": { "code": 21, "key": "KEY_Y", "hid_usage": "0x7001c", "typeable": true },
+    "l": { "code": 38, "key": "KEY_L", "hid_usage": "0x7000f", "typeable": true },
+    "r": { "code": 19, "key": "KEY_R", "hid_usage": "0x70015", "typeable": true },
+
+    "start":  { "code": 119, "key": "KEY_PAUSE", "hid_usage": "0x70048", "typeable": false },
+    "select": { "code": 99,  "key": "KEY_SYSRQ", "hid_usage": "0x70046", "typeable": false }
+  },
+
+  "_typeable_note": [
+    "typeable=true marks a button bound to a key that also produces a character.",
+    "A, B, X, Y, L, R are the literal QWERTY letters, so in nav mode they must be",
+    "swallowed, and in text mode they must pass through as text. tracerd.input is",
+    "modal for exactly this reason — see docs/controls.md#modal-input.",
+    "",
+    "start and select are the ONLY two buttons that are not typeable. That makes",
+    "them the only safe universal escapes out of text mode, which is why select",
+    "is bound to the mode toggle."
+  ],
+
+  "modes": {
+    "nav": {
+      "description": "Default. Typeable keys are consumed as buttons.",
+      "swallow_typeable": true
+    },
+    "text": {
+      "description": "Terminal, or any focused text field. Keys pass through verbatim.",
+      "swallow_typeable": false,
+      "exit_button": "select"
+    }
+  },
+
+  "hold": { "threshold_ms": 500, "repeat_hz": 8 }
+}

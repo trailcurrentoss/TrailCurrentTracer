@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<script type="module" src="https://cdn.jsdelivr.net/npm/ionicons@7.4.0/dist/ionicons/ionicons.esm.js"></script>
+<style>
+  body { margin:0; background:#0f1210; font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, "Helvetica Neue", Arial, sans-serif; color:#fff; }
+  a { color:#83A79C; text-decoration:none; }
+  a:hover { color:#7BC96A; }
+  ion-icon { display:block; }
+  @keyframes tcspin { to { transform: rotate(360deg); } }
+  @keyframes tcpulse { 0%,100% { opacity:1; } 50% { opacity:.35; } }
+  @keyframes tcring { 0% { transform:scale(1); opacity:.55; } 100% { transform:scale(2.8); opacity:0; } }
+</style>
+</helmet>
+
+<section style="display:flex; flex-direction:column; gap:20px; padding:40px 48px 64px;">
+  <div style="display:flex; align-items:baseline; gap:16px;">
+    <div style="font-size:22px; font-weight:700; letter-spacing:0.2px;">Tracer · PocketTerm35</div>
+    <div style="font-size:13px; color:#aaa;">Launcher direction B, all twelve apps. Arrows = D-pad, Enter = A, Esc = B, X / Y, Q / E = L / R.</div>
+  </div>
+
+  <div id="2a" style="display:flex; gap:28px; align-items:flex-start;">
+
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div style="width:696px; background:#131313; border:1px solid #333; border-radius:26px; padding:28px 28px 20px; box-shadow:0 8px 24px rgba(0,0,0,0.18);">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:0 4px 10px;">
+          <div style="display:flex; gap:6px; align-items:center;">
+            <div style="width:7px; height:7px; border-radius:9999px; background:#74FE00;"></div>
+            <div style="width:7px; height:7px; border-radius:9999px; background:#FFC107;"></div>
+            <div style="width:7px; height:7px; border-radius:9999px; background:#333;"></div>
+          </div>
+          <div style="font-size:10px; letter-spacing:2px; color:#666; text-transform:uppercase;">PocketTerm35 · Pi 5</div>
+          <div style="font-size:10px; color:#333;">Tracer 0.4.1</div>
+        </div>
+
+        <div style="width:640px; height:480px; background:#000; border:2px solid #333; border-radius:6px; overflow:hidden; position:relative; font-size:13px;">
+
+          <!-- BOOT -->
+          <sc-if value="{{ isBoot }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; inset:0; z-index:5; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; background:#000;">
+              <img src="assets/boot-logo.png" alt="TrailCurrent" style="width:128px; height:128px;">
+              <div style="text-align:center;">
+                <div style="font-size:26px; font-weight:500; letter-spacing:0.4px;">Tracer</div>
+                <div style="font-size:11px; color:#aaa; letter-spacing:1.6px; text-transform:uppercase; margin-top:5px;">TrailCurrent Field Debugger</div>
+              </div>
+              <div style="width:200px; height:3px; background:#1a1a1a; border-radius:9999px; overflow:hidden;">
+                <div style="width:{{ bootPct }}; height:3px; background:#52A441; box-shadow:0 0 20px rgba(82,164,65,0.5); transition:width .3s ease;"></div>
+              </div>
+              <div style="font-size:11px; color:#666; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace;">{{ bootLine }}</div>
+            </div>
+          </sc-if>
+
+          <!-- STATUS BAR -->
+          <div style="height:30px; display:flex; align-items:center; gap:10px; padding:0 12px; background:rgba(0,0,0,0.9); backdrop-filter:blur(10px); border-bottom:1px solid #333;">
+            <div style="font-size:12px; font-weight:500; letter-spacing:0.4px;">14:22</div>
+            <div style="font-size:11px; color:#666;">{{ crumb }}</div>
+            <div style="flex:1;"></div>
+            <div style="display:flex; align-items:center; gap:5px; color:#74FE00; font-size:11px;">
+              <ion-icon name="wifi" style="font-size:14px;"></ion-icon>
+              <span>Airstream-27</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:5px; color:#74FE00; font-size:11px;">
+              <ion-icon name="server" style="font-size:13px;"></ion-icon>
+              <span>headwaters.local</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:4px; font-size:11px; color:#aaa;">
+              <ion-icon name="battery-half" style="font-size:16px;"></ion-icon>
+              <span>78%</span>
+            </div>
+          </div>
+
+          <!-- HOME -->
+          <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+            <div style="height:420px; box-sizing:border-box; padding:14px 14px 16px; display:grid; grid-template-columns:repeat(3, 1fr); grid-auto-rows:1fr; gap:10px;">
+              <sc-for list="{{ apps }}" as="app" hint-placeholder-count="12">
+                <div onClick="{{ app.open }}" style="display:flex; align-items:center; gap:11px; padding:8px 11px; background:{{ app.bg }}; border:2px solid {{ app.border }}; box-shadow:{{ app.glow }}; border-radius:12px; cursor:pointer;">
+                  <div style="width:48px; height:48px; border-radius:11px; background:{{ app.tint }}; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    <ion-icon name="{{ app.icon }}" style="font-size:26px; color:{{ app.glyph }};"></ion-icon>
+                  </div>
+                  <div style="min-width:0;">
+                    <div style="font-size:13px; font-weight:500; line-height:17px;">{{ app.short }}</div>
+                    <div style="font-size:11px; color:{{ app.statusColor }}; line-height:14px; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace;">{{ app.status }}</div>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+          <!-- MQTT INSPECTOR -->
+          <sc-if value="{{ isMqtt }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex; height:420px;">
+              <div style="width:196px; border-right:1px solid #333; padding:10px 0;">
+                <div style="font-size:10px; color:#666; letter-spacing:1px; text-transform:uppercase; padding:0 12px 8px;">Topics</div>
+                <sc-for list="{{ topics }}" as="t" hint-placeholder-count="12">
+                  <div style="display:flex; align-items:center; gap:6px; padding:5px 12px; border-left:3px solid {{ t.mark }};">
+                    <div style="flex:1; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size:11px; color:{{ t.color }}; padding-left:{{ t.indent }};">{{ t.name }}</div>
+                    <div style="font-size:10px; color:#666;">{{ t.rate }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="flex:1; display:flex; flex-direction:column;">
+                <div style="display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid #333;">
+                  <div style="font-size:13px; font-weight:500;">MQTT Inspector</div>
+                  <div style="font-size:10px; color:{{ pauseColor }}; border:1px solid {{ pauseColor }}; border-radius:16px; padding:1px 7px;">{{ pauseLabel }}</div>
+                  <div style="flex:1;"></div>
+                  <div style="font-size:10px; color:#666; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace;">46 msg/s</div>
+                </div>
+                <div style="flex:1;">
+                  <sc-for list="{{ messages }}" as="m" hint-placeholder-count="8">
+                    <div style="padding:5px 12px; background:{{ m.bg }}; border-bottom:1px solid #1a1a1a;">
+                      <div style="display:flex; gap:8px; align-items:baseline; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size:11px;">
+                        <div style="color:#666;">{{ m.time }}</div>
+                        <div style="flex:1; color:{{ m.topicColor }}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ m.topic }}</div>
+                        <div style="color:#666;">{{ m.flags }}</div>
+                      </div>
+                      <div style="font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size:11px; color:{{ m.payloadColor }}; margin-top:2px; white-space:pre-wrap; word-break:break-all;">{{ m.payload }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- DISCOVERY -->
+          <sc-if value="{{ isDisco }}" hint-placeholder-val="{{ false }}">
+            <div style="height:420px; box-sizing:border-box; padding:12px 14px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div style="font-size:15px; font-weight:500;">Device Discovery</div>
+                <div style="font-size:11px; color:#666; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace;">_trailcurrent._tcp</div>
+                <div style="flex:1;"></div>
+                <ion-icon name="sync-outline" style="font-size:14px; color:#52A441; animation:tcspin 1s linear infinite;"></ion-icon>
+                <div style="font-size:11px; color:#aaa;">18s left</div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:9px; margin-top:12px;">
+                <sc-for list="{{ devices }}" as="d" hint-placeholder-count="5">
+                  <div style="display:flex; align-items:center; gap:12px; padding:12px; background:{{ d.bg }}; border:2px solid {{ d.border }}; box-shadow:{{ d.glow }}; border-radius:10px;">
+                    <div style="width:40px; height:40px; border-radius:9px; background:{{ d.tint }}; display:flex; align-items:center; justify-content:center;">
+                      <ion-icon name="{{ d.icon }}" style="font-size:22px; color:#000;"></ion-icon>
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                      <div style="display:flex; align-items:baseline; gap:7px;">
+                        <div style="font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size:13px; font-weight:500;">{{ d.hostname }}</div>
+                        <div style="font-size:11px; color:#aaa;">{{ d.type }}</div>
+                      </div>
+                      <div style="font-size:11px; color:#666; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace;">{{ d.meta }}</div>
+                    </div>
+                    <div style="font-size:11px; color:{{ d.stateColor }}; border:1px solid {{ d.stateColor }}; border-radius:16px; padding:2px 9px;">{{ d.state }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- CAPTURE -->
+          <sc-if value="{{ isCap }}" hint-placeholder-val="{{ false }}">
+            <div style="height:420px; box-sizing:border-box; padding:12px 14px 16px; display:flex; flex-direction:column;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div style="font-size:15px; font-weight:500;">Capture</div>
+                <div style="flex:1;"></div>
+                <div style="font-size:11px; color:#666;">/media/usb0 · 28.4 GB free</div>
+              </div>
+              <div style="margin-top:12px; padding:14px; background:{{ rec.bg }}; border:2px solid {{ rec.border }}; box-shadow:{{ rec.glow }}; border-radius:12px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <div style="width:12px; height:12px; border-radius:9999px; background:{{ rec.dot }};"></div>
+                  <div style="font-size:13px; font-weight:500;">{{ rec.label }}</div>
+                  <div style="flex:1;"></div>
+                  <div style="font-size:11px; color:#666; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace;">filter local/# + can/inbound</div>
+                </div>
+                <div style="display:flex; align-items:flex-end; gap:26px; margin-top:10px;">
+                  <div style="font-size:36px; line-height:40px; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace;">{{ rec.elapsed }}</div>
+                  <div>
+                    <div style="font-size:10px; color:#666; text-transform:uppercase; letter-spacing:0.5px;">Messages</div>
+                    <div style="font-size:16px;">{{ rec.count }}</div>
+                  </div>
+                  <div>
+                    <div style="font-size:10px; color:#666; text-transform:uppercase; letter-spacing:0.5px;">Size</div>
+                    <div style="font-size:16px;">{{ rec.size }}</div>
+                  </div>
+                  <div>
+                    <div style="font-size:10px; color:#666; text-transform:uppercase; letter-spacing:0.5px;">Dropped</div>
+                    <div style="font-size:16px;">0</div>
+                  </div>
+                </div>
+              </div>
+              <div style="font-size:10px; color:#666; letter-spacing:1px; text-transform:uppercase; margin:14px 0 8px;">Saved sessions</div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:7px; justify-content:space-between;">
+                <sc-for list="{{ captures }}" as="c" hint-placeholder-count="4">
+                  <div style="display:flex; align-items:center; gap:12px; padding:9px 12px; background:{{ c.bg }}; border:2px solid {{ c.border }}; box-shadow:{{ c.glow }}; border-radius:10px;">
+                    <ion-icon name="document-outline" style="font-size:17px; color:#aaa;"></ion-icon>
+                    <div style="flex:1; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size:12px;">{{ c.name }}</div>
+                    <div style="font-size:11px; color:#666;">{{ c.meta }}</div>
+                    <div style="font-size:11px; color:{{ c.syncColor }};">{{ c.sync }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- FIRMWARE -->
+          <sc-if value="{{ isFw }}" hint-placeholder-val="{{ false }}">
+            <div style="height:420px; box-sizing:border-box; padding:12px 14px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div style="font-size:15px; font-weight:500;">Firmware</div>
+                <div style="flex:1;"></div>
+                <div style="font-size:11px; color:#666; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace;">local/ota/trigger</div>
+              </div>
+              <div style="margin-top:12px; padding:12px; background:#1a1a1a; border:1px solid #333; border-radius:10px;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <ion-icon name="archive-outline" style="font-size:20px; color:#7BC96A;"></ion-icon>
+                  <div style="flex:1;">
+                    <div style="font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size:12px;">trailcurrent-fw-2.1.0.zip</div>
+                    <div style="font-size:11px; color:#666;">18.2 MB · 4 manifest entries · signature verified</div>
+                  </div>
+                  <div style="font-size:11px; color:#74FE00;">Staged</div>
+                </div>
+                <div style="height:4px; background:#2a2a2a; border-radius:9999px; margin-top:10px; overflow:hidden;">
+                  <div style="width:{{ fwPct }}; height:4px; background:#52A441; box-shadow:0 0 20px rgba(82,164,65,0.5); transition:width .3s ease;"></div>
+                </div>
+                <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:11px; color:#aaa;">
+                  <div>{{ fwStage }}</div>
+                  <div>{{ fwPct }}</div>
+                </div>
+              </div>
+              <div style="font-size:10px; color:#666; letter-spacing:1px; text-transform:uppercase; margin:14px 0 8px;">Targets</div>
+              <div style="display:flex; flex-direction:column; gap:7px;">
+                <sc-for list="{{ fwTargets }}" as="t" hint-placeholder-count="4">
+                  <div style="display:flex; align-items:center; gap:11px; padding:9px 12px; background:{{ t.bg }}; border:2px solid {{ t.border }}; box-shadow:{{ t.glow }}; border-radius:10px;">
+                    <ion-icon name="{{ t.check }}" style="font-size:18px; color:{{ t.checkColor }};"></ion-icon>
+                    <div style="flex:1; min-width:0;">
+                      <div style="font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size:12px;">{{ t.hostname }}</div>
+                      <div style="font-size:11px; color:#666;">{{ t.meta }}</div>
+                    </div>
+                    <div style="font-size:11px; color:{{ t.stateColor }};">{{ t.state }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- NETWORK -->
+          <sc-if value="{{ isNet }}" hint-placeholder-val="{{ false }}">
+            <div style="height:420px; box-sizing:border-box; padding:12px 14px 16px; display:flex; flex-direction:column;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div style="font-size:15px; font-weight:500;">Network</div>
+                <div style="flex:1;"></div>
+                <div style="font-size:11px; color:#74FE00;">wlan0 up</div>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:12px;">
+                <sc-for list="{{ netStats }}" as="n" hint-placeholder-count="4">
+                  <div style="padding:10px; background:#1a1a1a; border:1px solid #333; border-radius:10px;">
+                    <div style="font-size:10px; color:#666; text-transform:uppercase; letter-spacing:0.5px;">{{ n.label }}</div>
+                    <div style="font-size:15px; margin-top:3px; color:{{ n.color }}; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace;">{{ n.value }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="font-size:10px; color:#666; letter-spacing:1px; text-transform:uppercase; margin:14px 0 8px;">Reachability</div>
+              <div style="flex:1; display:flex; flex-direction:column; gap:7px; justify-content:space-between;">
+                <sc-for list="{{ netChecks }}" as="c" hint-placeholder-count="5">
+                  <div style="display:flex; align-items:center; gap:11px; padding:9px 12px; background:{{ c.bg }}; border:2px solid {{ c.border }}; box-shadow:{{ c.glow }}; border-radius:10px;">
+                    <ion-icon name="{{ c.icon }}" style="font-size:17px; color:{{ c.iconColor }};"></ion-icon>
+                    <div style="flex:1; font-size:12px;">{{ c.name }}</div>
+                    <div style="font-size:11px; color:#666; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace;">{{ c.detail }}</div>
+                    <div style="font-size:11px; color:{{ c.resultColor }};">{{ c.result }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- TERMINAL -->
+          <sc-if value="{{ isTerm }}" hint-placeholder-val="{{ false }}">
+            <div style="height:420px; box-sizing:border-box; padding:10px 12px 14px; display:flex; flex-direction:column; justify-content:flex-end; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size:12px; line-height:17px;">
+              <sc-for list="{{ termLines }}" as="l" hint-placeholder-count="16">
+                <div style="color:{{ l.color }}; white-space:pre;">{{ l.text }}</div>
+              </sc-for>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <div style="color:#7BC96A;">pi@tracer:~$</div>
+                <div style="color:#fff;">{{ termInput }}</div>
+                <div style="width:8px; height:15px; background:#7BC96A; animation:tcpulse 1s ease-in-out infinite;"></div>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- LOGS -->
+          <sc-if value="{{ isLogs }}" hint-placeholder-val="{{ false }}">
+            <div style="height:420px; box-sizing:border-box; padding:12px 14px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div style="font-size:15px; font-weight:500;">Logs</div>
+                <div style="flex:1;"></div>
+                <sc-for list="{{ logFilters }}" as="f" hint-placeholder-count="3">
+                  <div style="font-size:11px; color:{{ f.color }}; border:1px solid {{ f.border }}; border-radius:16px; padding:2px 10px;">{{ f.label }}</div>
+                </sc-for>
+              </div>
+              <div ref="{{ logClipRef }}" style="margin-top:10px; height:364px; overflow:hidden; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size:11px; line-height:16px;">
+                <div ref="{{ logListRef }}" style="transform:{{ logShift }}; transition:transform .2s ease;">
+                <sc-for list="{{ logLines }}" as="l" hint-placeholder-count="16">
+                  <div style="display:flex; gap:8px; padding:2px 0; background:{{ l.bg }};">
+                    <div style="color:#666; flex-shrink:0;">{{ l.time }}</div>
+                    <div style="color:{{ l.levelColor }}; width:44px; flex-shrink:0;">{{ l.level }}</div>
+                    <div style="color:#aaa; width:120px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ l.unit }}</div>
+                    <div style="color:{{ l.textColor }}; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ l.text }}</div>
+                  </div>
+                </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- CAN SNIFFER -->
+          <sc-if value="{{ isCan }}" hint-placeholder-val="{{ false }}">
+            <div style="height:420px; box-sizing:border-box; padding:12px 14px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div style="font-size:15px; font-weight:500;">CAN Sniffer</div>
+                <div style="font-size:11px; color:#666; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace;">can0 · 500 kbit/s · 0 err</div>
+                <div style="flex:1;"></div>
+                <div style="font-size:11px; color:#aaa;">grouped by ID</div>
+              </div>
+              <div style="display:flex; gap:8px; margin-top:10px; padding:0 4px; font-size:10px; color:#666; text-transform:uppercase; letter-spacing:0.5px;">
+                <div style="width:56px;">ID</div>
+                <div style="width:30px;">DLC</div>
+                <div style="width:186px;">Data</div>
+                <div style="flex:1;">Decoded</div>
+                <div style="width:52px; text-align:right;">Rate</div>
+              </div>
+              <div ref="{{ canClipRef }}" style="height:330px; overflow:hidden; margin-top:6px;">
+                <div ref="{{ canListRef }}" style="display:flex; flex-direction:column; gap:3px; transform:{{ canShift }}; transition:transform .2s ease;">
+                <sc-for list="{{ canRows }}" as="r" hint-placeholder-count="9">
+                  <div style="display:flex; gap:8px; align-items:center; padding:6px 4px; background:{{ r.bg }}; border-left:3px solid {{ r.mark }}; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size:11px;">
+                    <div style="width:56px; color:#7BC96A;">{{ r.id }}</div>
+                    <div style="width:30px; color:#666;">{{ r.dlc }}</div>
+                    <div style="width:186px; color:#fff;">{{ r.data }}</div>
+                    <div style="flex:1; color:#aaa; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">{{ r.decoded }}</div>
+                    <div style="width:52px; text-align:right; color:#666;">{{ r.rate }}</div>
+                  </div>
+                </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- HEADWATERS HEALTH -->
+          <sc-if value="{{ isHw }}" hint-placeholder-val="{{ false }}">
+            <div style="height:420px; box-sizing:border-box; padding:12px 14px 16px; display:flex; flex-direction:column;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div style="font-size:15px; font-weight:500;">Headwaters</div>
+                <div style="font-size:11px; color:#666; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace;">10.42.0.14 · Pi 5 · up 6d 02h</div>
+                <div style="flex:1;"></div>
+                <div style="font-size:11px; color:#74FE00;">6 of 6 healthy</div>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin-top:12px;">
+                <sc-for list="{{ hwStats }}" as="s" hint-placeholder-count="4">
+                  <div style="padding:10px; background:#1a1a1a; border:1px solid #333; border-radius:10px;">
+                    <div style="font-size:10px; color:#666; text-transform:uppercase; letter-spacing:0.5px;">{{ s.label }}</div>
+                    <div style="display:flex; align-items:baseline; gap:4px; margin-top:2px;">
+                      <div style="font-size:20px; color:{{ s.color }};">{{ s.value }}</div>
+                      <div style="font-size:11px; color:#666;">{{ s.unit }}</div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="font-size:10px; color:#666; letter-spacing:1px; text-transform:uppercase; margin:14px 0 8px;">Containers</div>
+              <div style="flex:1; display:grid; grid-template-columns:repeat(2, 1fr); grid-auto-rows:1fr; gap:8px;">
+                <sc-for list="{{ containers }}" as="c" hint-placeholder-count="6">
+                  <div style="display:flex; align-items:center; gap:10px; padding:9px 11px; background:{{ c.bg }}; border:2px solid {{ c.border }}; box-shadow:{{ c.glow }}; border-radius:10px;">
+                    <div style="width:8px; height:8px; border-radius:9999px; background:{{ c.dot }};"></div>
+                    <div style="flex:1; min-width:0;">
+                      <div style="font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size:12px;">{{ c.name }}</div>
+                      <div style="font-size:10px; color:#666;">{{ c.meta }}</div>
+                    </div>
+                    <div style="font-size:11px; color:{{ c.stateColor }};">{{ c.state }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- GNSS -->
+          <sc-if value="{{ isGnss }}" hint-placeholder-val="{{ false }}">
+            <div style="height:420px; box-sizing:border-box; display:flex;">
+              <div style="width:250px; padding:12px 14px; border-right:1px solid #333;">
+                <div style="font-size:15px; font-weight:500;">GNSS</div>
+                <div style="display:flex; flex-direction:column; gap:7px; margin-top:12px;">
+                  <sc-for list="{{ gnssFields }}" as="g" hint-placeholder-count="7">
+                    <div style="display:flex; justify-content:space-between; align-items:baseline; padding:5px 0; border-bottom:1px solid #1a1a1a;">
+                      <div style="font-size:11px; color:#666; text-transform:uppercase; letter-spacing:0.5px;">{{ g.label }}</div>
+                      <div style="font-size:13px; color:{{ g.color }}; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace;">{{ g.value }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <div style="flex:1; position:relative; background:#0a0a0a; overflow:hidden;">
+                <div style="position:absolute; inset:0; background-image:linear-gradient(#141414 1px, transparent 1px), linear-gradient(90deg, #141414 1px, transparent 1px); background-size:40px 40px;"></div>
+                <div style="position:absolute; left:44%; top:46%; width:14px; height:14px; margin:-7px 0 0 -7px; border-radius:9999px; background:#52A441; box-shadow:0 0 20px rgba(82,164,65,0.5); z-index:2;"></div>
+                <div style="position:absolute; left:44%; top:46%; width:14px; height:14px; margin:-7px 0 0 -7px; border-radius:9999px; border:2px solid #52A441; animation:tcring 2s ease-out infinite;"></div>
+                <div style="position:absolute; left:12px; bottom:12px; padding:7px 10px; background:rgba(0,0,0,0.9); border:1px solid #333; border-radius:8px; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size:11px; color:#aaa;">44.42711, -110.58839</div>
+                <div style="position:absolute; right:12px; top:12px; padding:7px 10px; background:rgba(0,0,0,0.9); border:1px solid #333; border-radius:8px; font-size:11px; color:#666;">offline tiles · yellowstone.mbtiles</div>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- CHECKLIST -->
+          <sc-if value="{{ isCheck }}" hint-placeholder-val="{{ false }}">
+            <div style="height:420px; box-sizing:border-box; padding:12px 14px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div style="font-size:15px; font-weight:500;">Install Checklist</div>
+                <div style="flex:1;"></div>
+                <div style="font-size:11px; color:#aaa;">{{ checkProgress }}</div>
+              </div>
+              <div style="height:4px; background:#2a2a2a; border-radius:9999px; margin-top:8px; overflow:hidden;">
+                <div style="width:{{ checkPct }}; height:4px; background:#52A441; transition:width .3s ease;"></div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:5px; margin-top:12px;">
+                <sc-for list="{{ checks }}" as="c" hint-placeholder-count="8">
+                  <div style="display:flex; align-items:center; gap:11px; padding:8px 12px; background:{{ c.bg }}; border:2px solid {{ c.border }}; box-shadow:{{ c.glow }}; border-radius:10px;">
+                    <ion-icon name="{{ c.icon }}" style="font-size:18px; color:{{ c.iconColor }};"></ion-icon>
+                    <div style="flex:1; font-size:12px; color:{{ c.textColor }};">{{ c.name }}</div>
+                    <div style="font-size:11px; color:#666; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace;">{{ c.detail }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- SETTINGS -->
+          <sc-if value="{{ isSet }}" hint-placeholder-val="{{ false }}">
+            <div style="height:420px; box-sizing:border-box; padding:12px 14px;">
+              <div style="font-size:15px; font-weight:500;">Settings</div>
+              <div style="display:flex; flex-direction:column; gap:5px; margin-top:12px;">
+                <sc-for list="{{ settings }}" as="s" hint-placeholder-count="8">
+                  <div style="display:flex; align-items:center; gap:11px; padding:9px 12px; background:{{ s.bg }}; border:2px solid {{ s.border }}; box-shadow:{{ s.glow }}; border-radius:10px;">
+                    <ion-icon name="{{ s.icon }}" style="font-size:18px; color:#aaa;"></ion-icon>
+                    <div style="flex:1; font-size:12px;">{{ s.label }}</div>
+                    <div style="font-size:12px; color:{{ s.valueColor }}; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace;">{{ s.value }}</div>
+                    <ion-icon name="chevron-forward" style="font-size:15px; color:#666;"></ion-icon>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- TOAST -->
+          <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; left:50%; bottom:48px; transform:translateX(-50%); background:#1a1a1a; border:1px solid #333; border-radius:16px; padding:6px 14px; font-size:12px; color:#aaa; z-index:3;">{{ toast }}</div>
+          </sc-if>
+
+          <!-- HINT BAR -->
+          <sc-if value="{{ showHints }}" hint-placeholder-val="{{ true }}">
+            <div style="position:absolute; left:0; right:0; bottom:0; height:30px; display:flex; align-items:center; gap:14px; padding:0 12px; background:rgba(0,0,0,0.9); backdrop-filter:blur(10px); border-top:1px solid #333;">
+              <sc-for list="{{ hints }}" as="h" hint-placeholder-count="4">
+                <div style="display:flex; align-items:center; gap:5px;">
+                  <div style="width:17px; height:17px; border-radius:9999px; background:{{ h.bg }}; color:{{ h.fg }}; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center;">{{ h.btn }}</div>
+                  <div style="font-size:11px; color:#aaa;">{{ h.label }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+        </div>
+
+        <!-- CONTROLS -->
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 8px 4px;">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div onClick="{{ pad.l }}" style="font-size:11px; font-weight:700; color:#aaa; background:#1a1a1a; border:1px solid #333; border-radius:8px; padding:6px 14px; cursor:pointer; transition:all .2s ease;" style-hover="background:#252525; color:#fff">L</div>
+            <div style="display:grid; grid-template-columns:repeat(3, 26px); grid-template-rows:repeat(3, 26px);">
+              <div></div>
+              <div onClick="{{ pad.up }}" style="background:#1a1a1a; border:1px solid #333; border-radius:5px; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525"><ion-icon name="chevron-up" style="font-size:15px; color:#aaa;"></ion-icon></div>
+              <div></div>
+              <div onClick="{{ pad.left }}" style="background:#1a1a1a; border:1px solid #333; border-radius:5px; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525"><ion-icon name="chevron-back" style="font-size:15px; color:#aaa;"></ion-icon></div>
+              <div style="background:#131313;"></div>
+              <div onClick="{{ pad.right }}" style="background:#1a1a1a; border:1px solid #333; border-radius:5px; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525"><ion-icon name="chevron-forward" style="font-size:15px; color:#aaa;"></ion-icon></div>
+              <div></div>
+              <div onClick="{{ pad.down }}" style="background:#1a1a1a; border:1px solid #333; border-radius:5px; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525"><ion-icon name="chevron-down" style="font-size:15px; color:#aaa;"></ion-icon></div>
+              <div></div>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div onClick="{{ pad.y }}" style="width:34px; height:34px; border-radius:9999px; background:#1a1a1a; border:1px solid #333; color:#FFC107; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525">Y</div>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <div onClick="{{ pad.x }}" style="width:34px; height:34px; border-radius:9999px; background:#1a1a1a; border:1px solid #333; color:#48E6FE; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525">X</div>
+              <div onClick="{{ pad.b }}" style="width:34px; height:34px; border-radius:9999px; background:#1a1a1a; border:1px solid #333; color:#FF5453; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525">B</div>
+            </div>
+            <div onClick="{{ pad.a }}" style="width:34px; height:34px; border-radius:9999px; background:#52A441; border:1px solid #52A441; color:#000; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 0 20px rgba(82,164,65,0.5);" style-hover="background:#469038">A</div>
+            <div onClick="{{ pad.r }}" style="font-size:11px; font-weight:700; color:#aaa; background:#1a1a1a; border:1px solid #333; border-radius:8px; padding:6px 14px; cursor:pointer;" style-hover="background:#252525; color:#fff">R</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="width:250px; display:flex; flex-direction:column; gap:8px; padding-top:4px;">
+      <div style="font-size:11px; color:#666; letter-spacing:1px; text-transform:uppercase;">Jump to screen</div>
+      <sc-for list="{{ jumps }}" as="j" hint-placeholder-count="14">
+        <div onClick="{{ j.go }}" style="font-size:12px; color:{{ j.color }}; background:#1a1a1a; border:1px solid {{ j.border }}; border-radius:8px; padding:7px 12px; cursor:pointer;" style-hover="background:#252525">{{ j.label }}</div>
+      </sc-for>
+    </div>
+
+  </div>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1100,&quot;height&quot;:760}}">
+const APPS = [
+  { id:'mqtt',  short:'MQTT Inspector', icon:'pulse',         tint:'#52A441', glyph:'#000',    status:'46 msg/s',      statusColor:'#74FE00' },
+  { id:'disco', short:'Discovery',      icon:'scan',          tint:'#48E6FE', glyph:'#000',    status:'5 found',       statusColor:'#48E6FE' },
+  { id:'cap',   short:'Capture',        icon:'recording',     tint:'#FF5453', glyph:'#000',    status:'idle',          statusColor:'#666' },
+  { id:'fw',    short:'Firmware',       icon:'cloud-upload',  tint:'#7BC96A', glyph:'#000',    status:'2 pending',     statusColor:'#FFC107' },
+  { id:'net',   short:'Network',        icon:'wifi',          tint:'#3D7B31', glyph:'#fff',    status:'Airstream-27',  statusColor:'#74FE00' },
+  { id:'term',  short:'Terminal',       icon:'terminal',      tint:'#2a2a2a', glyph:'#7BC96A', status:'pi@tracer',     statusColor:'#666' },
+  { id:'logs',  short:'Logs',           icon:'document-text', tint:'#4a4a4a', glyph:'#fff',    status:'3 warnings',    statusColor:'#FFC107' },
+  { id:'can',   short:'CAN Sniffer',    icon:'swap-vertical', tint:'#FFC107', glyph:'#000',    status:'500 kbit/s',    statusColor:'#74FE00' },
+  { id:'hw',    short:'Headwaters',     icon:'server',        tint:'#52A441', glyph:'#000',    status:'6/6 up',        statusColor:'#74FE00' },
+  { id:'gnss',  short:'GNSS & Map',     icon:'location',      tint:'#48E6FE', glyph:'#000',    status:'9 sats · 3D',   statusColor:'#74FE00' },
+  { id:'check', short:'Checklist',      icon:'checkbox',      tint:'#7BC96A', glyph:'#000',    status:'4 of 11',       statusColor:'#aaa' },
+  { id:'set',   short:'Settings',       icon:'settings',      tint:'#4a4a4a', glyph:'#fff',    status:'Tracer 0.4.1',  statusColor:'#666' }
+];
+
+const TITLES = { mqtt:'MQTT Inspector', disco:'Device Discovery', cap:'Capture', fw:'Firmware',
+  net:'Network', term:'Terminal', logs:'Logs', can:'CAN Sniffer', hw:'Headwaters',
+  gnss:'GNSS & Map', check:'Install Checklist', set:'Settings' };
+
+const TOPICS = [
+  { name:'local/',            rate:'',      depth:0, head:true },
+  { name:'energy/status',     rate:'2/s',   depth:1 },
+  { name:'water/status',      rate:'0.2/s', depth:1 },
+  { name:'gps/latlon',        rate:'1/s',   depth:1 },
+  { name:'level/tilt',        rate:'1/s',   depth:1 },
+  { name:'airquality/status', rate:'0.5/s', depth:1 },
+  { name:'spoor/0/inputs',    rate:'4/s',   depth:1 },
+  { name:'can/',              rate:'',      depth:0, head:true },
+  { name:'inbound',           rate:'46/s',  depth:1 },
+  { name:'outbound',          rate:'0/s',   depth:1 },
+  { name:'discovery/',        rate:'',      depth:0, head:true },
+  { name:'browse/found',      rate:'--',    depth:1 }
+];
+
+const MESSAGES = [
+  { time:'14:22:07.114', topic:'local/energy/status',    flags:'q0',   payload:'{"batteryVoltage":13.4,"solarInput":850,"stateOfCharge":92,"chargeStatus":"Float"}' },
+  { time:'14:22:07.098', topic:'can/inbound',            flags:'q0',   payload:'{"identifier":"0x004","data_length_code":8,"data":[[0,0,0,1,0,1,0,0]…]}' },
+  { time:'14:22:06.902', topic:'local/level/tilt',       flags:'q0',   payload:'{"pitch":0.8,"roll":-2.4,"status":"Tilted right"}' },
+  { time:'14:22:06.741', topic:'local/gps/latlon',       flags:'q0 R', payload:'{"latitude":44.42711,"longitude":-110.58839}' },
+  { time:'14:22:06.503', topic:'local/spoor/0/inputs',   flags:'q0',   payload:'{"inputs":[1,0,0,1,0,0,0,0],"instance":0}' },
+  { time:'14:22:05.980', topic:'local/water/status',     flags:'q0 R', payload:'{"fresh":72,"grey":38,"black":12}' },
+  { time:'14:22:05.446', topic:'local/airquality/status',flags:'q0',   payload:'{"co2":1250,"voc":88,"aqi":"Moderate"}' },
+  { time:'14:22:04.911', topic:'local/system/stats',     flags:'q1 R', payload:'{"cpu":18.4,"mem":41.2,"uptime":"6d 02h","disk":63}' }
+];
+
+const DEVICES = [
+  { hostname:'bearing-3f2a',    type:'bearing',  meta:'fw 1.4.2 · addr 12 · canid 0x150 · confirm', icon:'compass',    tint:'#48E6FE', onboard:'Confirm' },
+  { hostname:'solstice-08c1',   type:'solstice', meta:'fw 1.3.0 · addr 4 · canid 0x120 · confirm',  icon:'sunny',      tint:'#FFC107', onboard:'Confirm' },
+  { hostname:'tapper-b71d',     type:'tapper',   meta:'fw 2.0.1 · target torrent · canid 0x025',    icon:'flash',      tint:'#7BC96A', onboard:'Confirm' },
+  { hostname:'playbill-galley', type:'playbill', meta:'deviceId galley · canInstance 1 · claim',    icon:'desktop',    tint:'#52A441', onboard:'Claim' },
+  { hostname:'spoor-4a90',      type:'spoor',    meta:'fw 1.1.7 · addr 9 · canid 0x018 · confirm',  icon:'git-branch', tint:'#4a4a4a', onboard:'Confirm' }
+];
+
+const CAPTURES = [
+  { name:'capture-0412-1358.jsonl', meta:'4m 12s · 11,204 msg · 2.8 MB', sync:'On USB',   syncColor:'#aaa' },
+  { name:'capture-0412-1122.jsonl', meta:'12m 03s · 33,870 msg · 8.1 MB', sync:'Uploaded', syncColor:'#74FE00' },
+  { name:'capture-0411-1640.jsonl', meta:'1m 44s · 4,010 msg · 1.1 MB',  sync:'Uploaded', syncColor:'#74FE00' },
+  { name:'can-bus-fault-0409.jsonl',meta:'8m 20s · 91,553 msg · 22.4 MB',sync:'On USB',   syncColor:'#aaa' }
+];
+
+const FW_TARGETS = [
+  { hostname:'bearing-3f2a',    meta:'bearing · 1.4.2 → 2.1.0',  state:'Queued',   stateColor:'#FFC107', on:true },
+  { hostname:'solstice-08c1',   meta:'solstice · 1.3.0 → 2.1.0', state:'Queued',   stateColor:'#FFC107', on:true },
+  { hostname:'tapper-b71d',     meta:'tapper · 2.0.1 → 2.1.0',   state:'Skipped',  stateColor:'#666',    on:false },
+  { hostname:'playbill-galley', meta:'playbill · no MCU image',  state:'N/A',      stateColor:'#666',    on:false }
+];
+
+const NET_STATS = [
+  { label:'SSID',    value:'Airstream-27', color:'#fff' },
+  { label:'IP',      value:'10.42.0.87',   color:'#fff' },
+  { label:'Signal',  value:'-42 dBm',      color:'#74FE00' },
+  { label:'Gateway', value:'10.42.0.1',    color:'#fff' }
+];
+
+const NET_CHECKS = [
+  { name:'headwaters.local resolves',   detail:'mDNS · 10.42.0.14', result:'OK',      ok:true },
+  { name:'ICMP to Headwaters',          detail:'2.1 ms avg',        result:'OK',      ok:true },
+  { name:'MQTT TLS 8883',               detail:'handshake 84 ms',   result:'OK',      ok:true },
+  { name:'Backend API 443',             detail:'HTTP 200',          result:'OK',      ok:true },
+  { name:'Cloud bridge to Farwatch',    detail:'no route to host',  result:'Offline', ok:false }
+];
+
+const TERM_LINES = [
+  { text:'pi@tracer:~$ docker ps --format "{{.Names}}\\t{{.Status}}"', color:'#fff' },
+  { text:'mosquitto     Up 6 days (healthy)', color:'#aaa' },
+  { text:'node-red      Up 6 days (healthy)', color:'#aaa' },
+  { text:'mongodb       Up 6 days (healthy)', color:'#aaa' },
+  { text:'backend       Up 6 days (healthy)', color:'#aaa' },
+  { text:'frontend      Up 6 days (healthy)', color:'#aaa' },
+  { text:'tileserver    Up 6 days (healthy)', color:'#aaa' },
+  { text:'', color:'#aaa' },
+  { text:'pi@tracer:~$ mosquitto_sub -h headwaters.local -p 8883 --cafile ca.pem \\', color:'#fff' },
+  { text:'  -u trailcurrent -P **** -t "local/#" -v -C 3', color:'#fff' },
+  { text:'local/energy/status {"batteryVoltage":13.4,"solarInput":850}', color:'#7BC96A' },
+  { text:'local/water/status {"fresh":72,"grey":38,"black":12}', color:'#7BC96A' },
+  { text:'local/level/tilt {"pitch":0.8,"roll":-2.4}', color:'#7BC96A' },
+  { text:'', color:'#aaa' },
+  { text:'pi@tracer:~$ candump can0 -n 4', color:'#fff' },
+  { text:'  can0  004   [8]  01 04 02 00 00 00 00 00', color:'#aaa' }
+];
+
+const LOG_LINES = [
+  { time:'14:22:06', level:'INFO', unit:'can-to-mqtt',    text:'published 46 frames to can/inbound', lvl:'info' },
+  { time:'14:22:04', level:'WARN', unit:'deployment-w',   text:'ota target tapper-b71d skipped — version equal', lvl:'warn' },
+  { time:'14:21:58', level:'INFO', unit:'discovery-mdns', text:'found device: playbill-galley type=playbill onboard=claim', lvl:'info' },
+  { time:'14:21:52', level:'ERR',  unit:'cloud-bridge',   text:'connect ECONNREFUSED farwatch.trailcurrent.com:8883', lvl:'err' },
+  { time:'14:21:52', level:'WARN', unit:'cloud-bridge',   text:'falling back to local-only mode, buffering 240 msgs', lvl:'warn' },
+  { time:'14:21:44', level:'INFO', unit:'mosquitto',      text:'new client connected as tracer-0f21 (p2, c1, k60)', lvl:'info' },
+  { time:'14:21:40', level:'INFO', unit:'backend',        text:'retained local/config/system_sync republished', lvl:'info' },
+  { time:'14:21:31', level:'WARN', unit:'can-to-mqtt',    text:'CAN send failed (1): no buffer space available', lvl:'warn' },
+  { time:'14:21:12', level:'INFO', unit:'map-watcher',    text:'yellowstone.mbtiles verified, 1.2 GB', lvl:'info' },
+  { time:'14:20:58', level:'INFO', unit:'node-red',       text:'flows deployed, 14 nodes started', lvl:'info' },
+  { time:'14:20:41', level:'INFO', unit:'os-settings',    text:'brightness set to 70%', lvl:'info' },
+  { time:'14:20:22', level:'INFO', unit:'chrony',         text:'system clock synchronised to GNSS PPS', lvl:'info' },
+  { time:'14:20:09', level:'INFO', unit:'backend',        text:'GET /api/modules 200 · 14 ms', lvl:'info' },
+  { time:'14:19:55', level:'ERR',  unit:'can-to-mqtt',    text:'CAN bus send failed (3): transmit buffer full', lvl:'err' },
+  { time:'14:19:54', level:'INFO', unit:'can-to-mqtt',    text:'reinitialising socketcan can0 @ 500000', lvl:'info' },
+  { time:'14:19:41', level:'INFO', unit:'discovery-mdns', text:'browse session ended, 5 hostnames published', lvl:'info' },
+  { time:'14:19:20', level:'INFO', unit:'deployment-w',   text:'staged trailcurrent-fw-2.1.0.zip (18.2 MB)', lvl:'info' },
+  { time:'14:19:18', level:'INFO', unit:'deployment-w',   text:'manifest signature verified against release key', lvl:'info' },
+  { time:'14:18:57', level:'WARN', unit:'mosquitto',      text:'client tracer-0f21 already connected, closing old session', lvl:'warn' },
+  { time:'14:18:30', level:'INFO', unit:'time-from-bear', text:'PPS drift 0.4 ms, no correction applied', lvl:'info' },
+  { time:'14:18:02', level:'INFO', unit:'backend',        text:'retained rv/energy/status mirrored to cloud queue', lvl:'info' },
+  { time:'14:17:44', level:'INFO', unit:'mongodb',        text:'checkpoint complete, 2.1 MB written', lvl:'info' }
+];
+
+const CAN_ROWS = [
+  { id:'0x004', dlc:'8', data:'01 04 02 00 00 00 00 00', decoded:'Firmware version broadcast · 1.4.2', rate:'0.2/s', hot:false },
+  { id:'0x018', dlc:'2', data:'01 5A',                   decoded:'Spoor input mask · ch1 on',          rate:'4/s',   hot:false },
+  { id:'0x025', dlc:'3', data:'01 FF 00',                decoded:'Tapper relay · channel 1 · 100%',    rate:'1/s',   hot:true },
+  { id:'0x026', dlc:'3', data:'02 00 00',                decoded:'Tapper relay · channel 2 · off',     rate:'1/s',   hot:false },
+  { id:'0x100', dlc:'8', data:'00 01 00 00 00 00 00 00', decoded:'Playbill 0 · Transport state',       rate:'2/s',   hot:false },
+  { id:'0x110', dlc:'8', data:'01 00 3C 00 00 00 00 00', decoded:'Playbill 1 · Volume 60',             rate:'0.5/s', hot:false },
+  { id:'0x120', dlc:'6', data:'0D 68 03 52 00 00',       decoded:'Solstice MPPT · 13.4 V · 850 W',     rate:'2/s',   hot:false },
+  { id:'0x150', dlc:'8', data:'2C 6D 41 96 F9 A3 09 03', decoded:'Bearing GNSS · lat/lon fix 3D',      rate:'1/s',   hot:false },
+  { id:'0x151', dlc:'4', data:'00 08 FF E8',             decoded:'Bearing level · pitch 0.8 roll -2.4',rate:'1/s',   hot:false },
+  { id:'0x027', dlc:'3', data:'03 80 00',                decoded:'Tapper relay · channel 3 · 50%',     rate:'1/s',   hot:false },
+  { id:'0x028', dlc:'3', data:'04 00 00',                decoded:'Tapper relay · channel 4 · off',     rate:'1/s',   hot:false },
+  { id:'0x101', dlc:'8', data:'02 00 01 00 00 00 00 00', decoded:'Playbill 0 · LaunchSource radio',    rate:'0.5/s', hot:false },
+  { id:'0x121', dlc:'6', data:'00 5C 00 48 01 00',       decoded:'Solstice · SOC 92% · Float',         rate:'0.5/s', hot:false },
+  { id:'0x152', dlc:'8', data:'09 27 43 00 00 00 00 00', decoded:'Bearing GNSS · 9 sats · HDOP 0.9',   rate:'1/s',   hot:false }
+];
+
+const HW_STATS = [
+  { label:'CPU',  value:'18.4', unit:'%',  color:'#74FE00' },
+  { label:'Memory', value:'41.2', unit:'%', color:'#74FE00' },
+  { label:'Disk', value:'63',   unit:'%',  color:'#FFC107' },
+  { label:'SoC temp', value:'52', unit:'°C', color:'#74FE00' }
+];
+
+const CONTAINERS = [
+  { name:'mosquitto',  meta:'2.0.18 · up 6d 02h', state:'healthy', ok:true },
+  { name:'node-red',   meta:'3.1.9 · up 6d 02h',  state:'healthy', ok:true },
+  { name:'mongodb',    meta:'7.0 · up 6d 02h',    state:'healthy', ok:true },
+  { name:'backend',    meta:'0.9.4 · up 6d 02h',  state:'healthy', ok:true },
+  { name:'frontend',   meta:'nginx · up 6d 02h',  state:'healthy', ok:true },
+  { name:'tileserver', meta:'4.11 · up 6d 02h',   state:'healthy', ok:true }
+];
+
+const GNSS_FIELDS = [
+  { label:'Fix',       value:'3D',        good:true },
+  { label:'Satellites',value:'9 / 12',    good:true },
+  { label:'HDOP',      value:'0.9',       good:true },
+  { label:'Latitude',  value:'44.42711',  good:null },
+  { label:'Longitude', value:'-110.58839',good:null },
+  { label:'Altitude',  value:'2,371 m',   good:null },
+  { label:'Heading',   value:'118°',      good:null },
+  { label:'Speed',     value:'0.0 mph',   good:null }
+];
+
+const CHECKS = [
+  { name:'Headwaters reachable on rig WiFi', detail:'10.42.0.14',      done:true },
+  { name:'MQTT broker accepts TLS client',   detail:'8883',            done:true },
+  { name:'CAN bus terminated, 0 error frames',detail:'can0 · 0 err',   done:true },
+  { name:'All expected modules discovered',  detail:'5 of 6',          done:false },
+  { name:'Firmware at 2.1.0 across modules', detail:'2 pending',       done:false },
+  { name:'GNSS 3D fix acquired',             detail:'9 sats',          done:true },
+  { name:'Tank senders reading in range',    detail:'fresh 72%',       done:false },
+  { name:'Shore/solar transfer verified',    detail:'--',              done:false }
+];
+
+const SETTINGS = [
+  { label:'MQTT broker',   value:'headwaters.local:8883', icon:'server-outline' },
+  { label:'Client ID',     value:'tracer-0f21',           icon:'key-outline' },
+  { label:'CA certificate',value:'ca.pem',                icon:'document-lock-outline' },
+  { label:'Brightness',    value:'70%',                   icon:'sunny-outline' },
+  { label:'Button mapping',value:'Gamepad-first',         icon:'game-controller-outline' },
+  { label:'Capture folder',value:'/media/usb0',           icon:'folder-outline' },
+  { label:'Hostname',      value:'tracer.local',          icon:'hardware-chip-outline' },
+  { label:'About',         value:'Tracer 0.4.1',          icon:'information-circle-outline' }
+];
+
+const HINTS = {
+  home:  [['A','Open'],['B','Back'],['X','Search'],['Y','Pin to top row']],
+  mqtt:  [['A','Expand'],['B','Home'],['X','Pause'],['Y','Capture']],
+  disco: [['A','Confirm'],['B','Home'],['X','Rescan'],['Y','Details']],
+  cap:   [['A','Record'],['B','Home'],['X','Filter'],['Y','Upload']],
+  fw:    [['A','Toggle target'],['B','Home'],['X','Push'],['Y','Manifest']],
+  net:   [['A','Recheck'],['B','Home'],['X','Rejoin'],['Y','Static IP']],
+  term:  [['B','Home'],['X','Ctrl-C'],['Y','Paste'],['L/R','Tab']],
+  logs:  [['A','Expand'],['B','Home'],['X','Level'],['Y','Follow']],
+  can:   [['A','Decode'],['B','Home'],['X','Freeze'],['Y','Send frame']],
+  hw:    [['A','Container'],['B','Home'],['X','Restart'],['Y','Logs']],
+  gnss:  [['A','Center'],['B','Home'],['X','Sat view'],['Y','Mark']],
+  check: [['A','Toggle'],['B','Home'],['X','Rerun'],['Y','Export']],
+  set:   [['A','Edit'],['B','Home'],['X','Reset'],['Y','Reboot']]
+};
+
+const ROWS = { mqtt:MESSAGES.length, disco:DEVICES.length, cap:CAPTURES.length, fw:FW_TARGETS.length,
+  net:NET_CHECKS.length, logs:LOG_LINES.length, can:CAN_ROWS.length, hw:CONTAINERS.length,
+  gnss:GNSS_FIELDS.length, check:CHECKS.length, set:SETTINGS.length, term:0 };
+
+const BTN_COLORS = { A:['#52A441','#000'], B:['#FF5453','#000'], X:['#48E6FE','#000'], Y:['#FFC107','#000'], 'L/R':['#2a2a2a','#aaa'] };
+
+class Component extends DCLogic {
+  state = { screen:'boot', boot:0, focus:0, row:0, toast:'', paused:false, shift:{ logs:0, can:0 },
+            recording:false, confirmed:[], fwOn:[0,1], checkDone:[0,1,2,5] };
+
+  componentDidMount() {
+    this._key = (e) => {
+      const map = { ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right',
+                    Enter:'a', Escape:'b', x:'x', X:'x', y:'y', Y:'y', q:'l', e:'r' };
+      const btn = map[e.key];
+      if (!btn) return;
+      e.preventDefault();
+      this.press(btn);
+    };
+    window.addEventListener('keydown', this._key);
+    this.startBoot();
+  }
+
+  componentWillUnmount() { window.removeEventListener('keydown', this._key); clearInterval(this._boot); }
+
+  componentDidUpdate() { this.syncScroll('logs'); this.syncScroll('can'); }
+
+  setRef(key, kind) {
+    this._els = this._els || {};
+    return (el) => { this._els[key + kind] = el; };
+  }
+
+  // Keep the cursor row inside the clipped viewport by measuring the real DOM,
+  // never by assuming a row pitch.
+  syncScroll(key) {
+    const els = this._els || {};
+    const clip = els[key + 'clip'], list = els[key + 'list'];
+    if (!clip || !list) return;
+    const row = list.children[this.state.row];
+    if (!row) return;
+    const cur = (this.state.shift || {})[key] || 0;
+    const top = row.offsetTop, bottom = top + row.offsetHeight;
+    let next = cur;
+    if (bottom > cur + clip.clientHeight) next = bottom - clip.clientHeight;
+    else if (top < cur) next = top;
+    if (next !== cur) this.setState(s => ({ shift: Object.assign({}, s.shift, { [key]: next }) }));
+  }
+
+  startBoot() {
+    clearInterval(this._boot);
+    this._boot = setInterval(() => this.setState(s => {
+      if (s.screen !== 'boot') return s;
+      if (s.boot >= 100) { clearInterval(this._boot); return { screen:'home' }; }
+      return { boot: s.boot + 12 };
+    }), 200);
+  }
+
+  toast(text) {
+    this.setState({ toast: text });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast:'' }), 1700);
+  }
+
+  open(id) { this.setState({ screen:id, row:0 }); }
+
+  press(btn) {
+    const s = this.state;
+    if (s.screen === 'boot') { if (btn === 'a' || btn === 'b') this.setState({ screen:'home' }); return; }
+
+    if (s.screen === 'home') {
+      const max = APPS.length - 1, cols = 3;
+      const clamp = n => Math.max(0, Math.min(max, n));
+      if (btn === 'left')  return this.setState({ focus: clamp(s.focus - 1) });
+      if (btn === 'right') return this.setState({ focus: clamp(s.focus + 1) });
+      if (btn === 'up')    return this.setState({ focus: clamp(s.focus - cols) });
+      if (btn === 'down')  return this.setState({ focus: clamp(s.focus + cols) });
+      if (btn === 'l')     return this.setState({ focus: 0 });
+      if (btn === 'r')     return this.setState({ focus: max });
+      if (btn === 'a')     return this.open(APPS[s.focus].id);
+      if (btn === 'x')     return this.toast('Search apps');
+      if (btn === 'y')     return this.toast(APPS[s.focus].short + ' pinned to top row');
+      return;
+    }
+
+    if (btn === 'b') return this.setState({ screen:'home' });
+
+    const rows = ROWS[s.screen] || 0;
+    if (rows) {
+      if (btn === 'up')   return this.setState({ row: Math.max(0, s.row - 1) });
+      if (btn === 'down') return this.setState({ row: Math.min(rows - 1, s.row + 1) });
+    }
+
+    if (s.screen === 'mqtt') {
+      if (btn === 'x') { this.setState({ paused: !s.paused }); return this.toast(s.paused ? 'Live' : 'Stream paused'); }
+      if (btn === 'y') return this.toast('Capturing to capture-0412.jsonl');
+      if (btn === 'a') return this.toast('Payload expanded');
+    }
+    if (s.screen === 'disco') {
+      const d = DEVICES[s.row];
+      if (btn === 'a') { this.setState({ confirmed: s.confirmed.concat([d.hostname]) });
+        return this.toast(d.onboard === 'Claim' ? 'Claiming ' + d.hostname : 'Confirm marker sent to ' + d.hostname); }
+      if (btn === 'x') return this.toast('Rescanning _trailcurrent._tcp');
+      if (btn === 'y') return this.toast(d.hostname + ' · TXT record');
+    }
+    if (s.screen === 'cap') {
+      if (btn === 'a') { this.setState({ recording: !s.recording }); return this.toast(s.recording ? 'Capture saved to /media/usb0' : 'Recording local/# + can/inbound'); }
+      if (btn === 'x') return this.toast('Edit topic filter');
+      if (btn === 'y') return this.toast('Uploading ' + CAPTURES[s.row].name);
+    }
+    if (s.screen === 'fw') {
+      if (btn === 'a') {
+        const on = s.fwOn.indexOf(s.row) >= 0 ? s.fwOn.filter(i => i !== s.row) : s.fwOn.concat([s.row]);
+        return this.setState({ fwOn: on });
+      }
+      if (btn === 'x') return this.toast('Published local/ota/trigger to ' + s.fwOn.length + ' targets');
+      if (btn === 'y') return this.toast('manifest.json · 4 entries');
+    }
+    if (s.screen === 'net') {
+      if (btn === 'a') return this.toast('Rechecking 5 endpoints');
+      if (btn === 'x') return this.toast('Rejoining Airstream-27');
+    }
+    if (s.screen === 'can') {
+      if (btn === 'x') return this.toast('Frame view frozen');
+      if (btn === 'y') return this.toast('Send frame on can/outbound');
+    }
+    if (s.screen === 'hw') {
+      if (btn === 'x') return this.toast('Restarting ' + CONTAINERS[s.row].name);
+      if (btn === 'y') return this.toast('docker logs -f ' + CONTAINERS[s.row].name);
+    }
+    if (s.screen === 'check') {
+      if (btn === 'a') {
+        const done = s.checkDone.indexOf(s.row) >= 0 ? s.checkDone.filter(i => i !== s.row) : s.checkDone.concat([s.row]);
+        return this.setState({ checkDone: done });
+      }
+      if (btn === 'y') return this.toast('Exported install-report.pdf');
+    }
+    if (s.screen === 'logs' && btn === 'x') return this.toast('Level filter: WARN and above');
+    if (s.screen === 'set'  && btn === 'a') return this.toast('Edit ' + SETTINGS[s.row].label);
+  }
+
+  pad() {
+    const send = btn => () => this.press(btn);
+    return { up:send('up'), down:send('down'), left:send('left'), right:send('right'),
+             a:send('a'), b:send('b'), x:send('x'), y:send('y'), l:send('l'), r:send('r') };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const rowSel = i => ({
+      bg: i === s.row ? '#252525' : '#1a1a1a',
+      border: i === s.row ? '#7BC96A' : '#333',
+      glow: i === s.row ? '0 0 20px rgba(82,164,65,0.5)' : 'none'
+    });
+    const is = id => s.screen === id;
+
+    return {
+      isBoot: is('boot'), isHome: is('home'), isMqtt: is('mqtt'), isDisco: is('disco'),
+      isCap: is('cap'), isFw: is('fw'), isNet: is('net'), isTerm: is('term'), isLogs: is('logs'),
+      isCan: is('can'), isHw: is('hw'), isGnss: is('gnss'), isCheck: is('check'), isSet: is('set'),
+      showHints: !is('boot'),
+      bootPct: Math.min(100, s.boot) + '%',
+      bootLine: s.boot < 40 ? 'mounting overlay · rootfs ro' : (s.boot < 80 ? 'starting mosquitto client' : 'joining Airstream-27'),
+      crumb: is('home') ? 'Tracer' : (TITLES[s.screen] || 'Tracer'),
+      toast: s.toast,
+      hints: (HINTS[s.screen] || []).map(([btn, label]) => {
+        const c = BTN_COLORS[btn] || ['#2a2a2a', '#aaa'];
+        return { btn, label, bg:c[0], fg:c[1] };
+      }),
+      pad: this.pad(),
+
+      apps: APPS.map((a, i) => Object.assign({}, a, {
+        bg: i === s.focus ? '#252525' : '#1a1a1a',
+        border: i === s.focus ? '#7BC96A' : '#333',
+        glow: i === s.focus ? '0 0 20px rgba(82,164,65,0.5)' : 'none',
+        open: () => this.open(a.id)
+      })),
+
+      topics: TOPICS.map(t => ({ name:t.name, rate:t.rate, indent: t.depth ? '10px' : '0px',
+        color: t.head ? '#fff' : '#aaa', mark: t.head ? '#52A441' : 'transparent' })),
+      messages: MESSAGES.map((m, i) => ({
+        time:m.time, topic:m.topic, flags:m.flags,
+        payload: i === s.row ? m.payload : (m.payload.length > 74 ? m.payload.slice(0, 74) + '…' : m.payload),
+        bg: i === s.row ? '#252525' : 'transparent',
+        topicColor: i === s.row ? '#7BC96A' : '#48E6FE',
+        payloadColor: i === s.row ? '#fff' : '#aaa'
+      })),
+      pauseLabel: s.paused ? 'PAUSED' : 'LIVE',
+      pauseColor: s.paused ? '#FFC107' : '#74FE00',
+
+      devices: DEVICES.map((d, i) => {
+        const done = s.confirmed.indexOf(d.hostname) >= 0;
+        return Object.assign({}, d, rowSel(i), {
+          state: done ? 'Onboarded' : d.onboard,
+          stateColor: done ? '#74FE00' : (d.onboard === 'Claim' ? '#48E6FE' : '#aaa')
+        });
+      }),
+
+      rec: {
+        bg: s.recording ? '#252525' : '#1a1a1a',
+        border: s.recording ? '#FF5453' : '#333',
+        glow: s.recording ? '0 0 20px rgba(255,84,83,0.5)' : 'none',
+        dot: s.recording ? '#FF5453' : '#4a4a4a',
+        label: s.recording ? 'Recording' : 'Ready to record',
+        elapsed: s.recording ? '00:42' : '00:00',
+        count: s.recording ? '1,931' : '0',
+        size: s.recording ? '0.4 MB' : '0 MB'
+      },
+      captures: CAPTURES.map((c, i) => Object.assign({}, c, rowSel(i))),
+
+      fwPct: '100%',
+      fwStage: 'Uploaded to Headwaters · awaiting distribution',
+      fwTargets: FW_TARGETS.map((t, i) => {
+        const on = s.fwOn.indexOf(i) >= 0;
+        return Object.assign({}, t, rowSel(i), {
+          check: on ? 'checkbox' : 'square-outline',
+          checkColor: on ? '#7BC96A' : '#4a4a4a',
+          state: on ? 'Queued' : t.state,
+          stateColor: on ? '#FFC107' : '#666'
+        });
+      }),
+
+      netStats: NET_STATS,
+      netChecks: NET_CHECKS.map((c, i) => Object.assign({}, c, rowSel(i), {
+        icon: c.ok ? 'checkmark-circle' : 'alert-circle',
+        iconColor: c.ok ? '#74FE00' : '#FF5453',
+        resultColor: c.ok ? '#74FE00' : '#FF5453'
+      })),
+
+      termLines: TERM_LINES,
+      termInput: 'mosquitto_pub -t local/ota/trigger -m ',
+
+      logFilters: [['All', true], ['Warn', false], ['Error', false]].map(([label, on]) => ({
+        label, color: on ? '#7BC96A' : '#666', border: on ? '#7BC96A' : '#333'
+      })),
+      logLines: LOG_LINES.map((l, i) => ({
+        time:l.time, level:l.level, unit:l.unit, text:l.text,
+        bg: i === s.row ? '#1a1a1a' : 'transparent',
+        levelColor: l.lvl === 'err' ? '#FF5453' : (l.lvl === 'warn' ? '#FFC107' : '#52A441'),
+        textColor: i === s.row ? '#fff' : '#aaa'
+      })),
+
+      logShift: 'translateY(-' + ((s.shift || {}).logs || 0) + 'px)',
+      canShift: 'translateY(-' + ((s.shift || {}).can || 0) + 'px)',
+      logClipRef: this.setRef('logs', 'clip'),
+      logListRef: this.setRef('logs', 'list'),
+      canClipRef: this.setRef('can', 'clip'),
+      canListRef: this.setRef('can', 'list'),
+      canRows: CAN_ROWS.map((r, i) => Object.assign({}, r, {
+        bg: i === s.row ? '#1a1a1a' : 'transparent',
+        mark: i === s.row ? '#7BC96A' : (r.hot ? '#FFC107' : 'transparent')
+      })),
+
+      hwStats: HW_STATS,
+      containers: CONTAINERS.map((c, i) => Object.assign({}, c, rowSel(i), {
+        dot: c.ok ? '#74FE00' : '#FF5453',
+        stateColor: c.ok ? '#74FE00' : '#FF5453'
+      })),
+
+      gnssFields: GNSS_FIELDS.map(g => ({ label:g.label, value:g.value, color: g.good ? '#74FE00' : '#fff' })),
+
+      checkPct: Math.round(s.checkDone.length / CHECKS.length * 100) + '%',
+      checkProgress: s.checkDone.length + ' of ' + CHECKS.length + ' verified',
+      checks: CHECKS.map((c, i) => {
+        const done = s.checkDone.indexOf(i) >= 0;
+        return Object.assign({}, c, rowSel(i), {
+          icon: done ? 'checkmark-circle' : 'ellipse-outline',
+          iconColor: done ? '#74FE00' : '#4a4a4a',
+          textColor: done ? '#aaa' : '#fff'
+        });
+      }),
+
+      settings: SETTINGS.map((x, i) => Object.assign({}, x, rowSel(i), {
+        valueColor: i === s.row ? '#fff' : '#aaa'
+      })),
+
+      jumps: [['Boot','boot'], ['Home','home']].concat(APPS.map(a => [a.short, a.id])).map(([label, screen]) => ({
+        label,
+        color: s.screen === screen ? '#7BC96A' : '#aaa',
+        border: s.screen === screen ? '#7BC96A' : '#333',
+        go: () => {
+          this.setState({ screen, row:0, boot: screen === 'boot' ? 0 : 100 });
+          if (screen === 'boot') this.startBoot();
+        }
+      }))
+    };
+  }
+}
+
+</script>
+</body>
+</html>
