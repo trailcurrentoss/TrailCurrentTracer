@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<script type="module" src="https://cdn.jsdelivr.net/npm/ionicons@7.4.0/dist/ionicons/ionicons.esm.js"></script>
+<style>
+  body { margin:0; background:#0f1210; font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, "Helvetica Neue", Arial, sans-serif; color:#fff; }
+  a { color:#83A79C; text-decoration:none; }
+  a:hover { color:#7BC96A; }
+  ion-icon { display:block; }
+  @keyframes tcspin { to { transform: rotate(360deg); } }
+  @keyframes tcpulse { 0%,100% { opacity:1; } 50% { opacity:.35; } }
+</style>
+</helmet>
+
+<section style="display:flex; flex-direction:column; gap:20px; padding:40px 48px 64px;">
+  <div style="display:flex; align-items:baseline; gap:16px;">
+    <div style="font-size:22px; font-weight:700; letter-spacing:0.2px;">PocketTerm35 · TrailCurrent Field Debugger</div>
+    <div style="font-size:13px; color:#aaa;">640 × 480 · gamepad-first · two launcher directions (<a href="#1a">1a</a> paged grid, <a href="#1b">1b</a> live list)</div>
+  </div>
+
+  <div style="display:flex; flex-wrap:wrap; gap:40px; align-items:flex-start;">
+
+    <!-- OPTION 1A -->
+    <div id="1a" style="display:flex; flex-direction:column; gap:12px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="font-size:11px; font-weight:700; letter-spacing:1px; background:#52A441; color:#000; padding:3px 8px; border-radius:16px;">1A</div>
+        <div style="font-size:13px; color:#aaa;">Full OS — boot, provisioning wizard, paged 4×2 launcher, MQTT Inspector, Device Discovery</div>
+      </div>
+
+      <div onClick="{{ focusA }}" style="width:696px; background:#131313; border:1px solid #333; border-radius:26px; padding:28px 28px 20px; box-shadow:0 8px 24px rgba(0,0,0,0.18);">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:0 4px 10px;">
+          <div style="display:flex; gap:6px; align-items:center;">
+            <div style="width:7px; height:7px; border-radius:9999px; background:#74FE00;"></div>
+            <div style="width:7px; height:7px; border-radius:9999px; background:#FFC107;"></div>
+            <div style="width:7px; height:7px; border-radius:9999px; background:#333;"></div>
+          </div>
+          <div style="font-size:10px; letter-spacing:2px; color:#666; text-transform:uppercase;">PocketTerm35 · Pi 5</div>
+          <div style="font-size:10px; color:{{ kbdA }};">KEYBOARD</div>
+        </div>
+
+        <div style="width:640px; height:480px; background:#000; border:2px solid #333; border-radius:6px; overflow:hidden; position:relative; font-size:13px;">
+
+          <!-- BOOT SPLASH -->
+          <sc-if value="{{ isBoot }}" hint-placeholder-val="{{ true }}">
+            <div style="position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; background:#000;">
+              <img src="assets/boot-logo.png" alt="TrailCurrent" style="width:132px; height:132px;">
+              <div style="text-align:center;">
+                <div style="font-size:24px; font-weight:500; letter-spacing:0.4px;">TrailCurrent</div>
+                <div style="font-size:12px; color:#aaa; letter-spacing:1.4px; text-transform:uppercase; margin-top:4px;">Field Debugger</div>
+              </div>
+              <div style="width:200px; height:3px; background:#1a1a1a; border-radius:9999px; overflow:hidden;">
+                <div style="width:{{ bootPct }}; height:3px; background:#52A441; box-shadow:0 0 20px rgba(82,164,65,0.5); transition:width .3s ease;"></div>
+              </div>
+              <div style="font-size:11px; color:#666; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace;">{{ bootLine }}</div>
+            </div>
+          </sc-if>
+
+          <!-- CHROME: status bar -->
+          <sc-if value="{{ showChrome }}" hint-placeholder-val="{{ true }}">
+            <div style="height:30px; display:flex; align-items:center; gap:10px; padding:0 12px; background:rgba(0,0,0,0.9); backdrop-filter:blur(10px); border-bottom:1px solid #333; position:relative; z-index:2;">
+              <div style="font-size:12px; font-weight:500; letter-spacing:0.4px;">{{ clock }}</div>
+              <div style="flex:1;"></div>
+              <div style="display:flex; align-items:center; gap:5px; color:{{ wifiColor }}; font-size:11px;">
+                <ion-icon name="wifi" style="font-size:14px;"></ion-icon>
+                <span>{{ wifiLabel }}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:5px; color:{{ brokerColor }}; font-size:11px;">
+                <ion-icon name="server" style="font-size:13px;"></ion-icon>
+                <span>{{ brokerLabel }}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:4px; font-size:11px; color:#aaa;">
+                <ion-icon name="battery-half" style="font-size:16px;"></ion-icon>
+                <span>78%</span>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- WIZARD 1: network pick -->
+          <sc-if value="{{ isWifi }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:14px 16px 0;">
+              <div style="display:flex; align-items:baseline; gap:8px;">
+                <div style="font-size:16px; font-weight:500;">Select Network</div>
+                <div style="font-size:11px; color:#666;">Step 1 of 3</div>
+              </div>
+              <div style="font-size:12px; color:#aaa; margin-top:2px;">Join the rig's WiFi. Headwaters must be reachable on the same subnet.</div>
+              <div style="display:flex; flex-direction:column; gap:6px; margin-top:12px;">
+                <sc-for list="{{ networks }}" as="net" hint-placeholder-count="4">
+                  <div style="display:flex; align-items:center; gap:12px; padding:9px 12px; background:{{ net.bg }}; border:2px solid {{ net.border }}; box-shadow:{{ net.glow }}; border-radius:8px;">
+                    <ion-icon name="{{ net.icon }}" style="font-size:18px; color:{{ net.iconColor }};"></ion-icon>
+                    <div style="flex:1;">
+                      <div style="font-size:13px; font-weight:500;">{{ net.ssid }}</div>
+                      <div style="font-size:11px; color:#666;">{{ net.meta }}</div>
+                    </div>
+                    <div style="font-size:11px; color:#aaa;">{{ net.rssi }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- WIZARD 2: password -->
+          <sc-if value="{{ isPass }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:14px 16px 0;">
+              <div style="display:flex; align-items:baseline; gap:8px;">
+                <div style="font-size:16px; font-weight:500;">{{ pickedSsid }}</div>
+                <div style="font-size:11px; color:#666;">Step 2 of 3</div>
+              </div>
+              <div style="font-size:12px; color:#aaa; margin-top:2px;">Type on the hardware keyboard. WPA2, 8–63 characters.</div>
+              <div style="margin-top:16px;">
+                <div style="font-size:11px; color:#aaa; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:6px;">Passphrase</div>
+                <div style="display:flex; align-items:center; gap:10px; padding:11px 12px; background:#1a1a1a; border:2px solid #52A441; box-shadow:0 0 0 3px rgba(82,164,65,0.2); border-radius:8px;">
+                  <div style="flex:1; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size:14px; letter-spacing:2px;">{{ passMask }}</div>
+                  <div style="width:2px; height:18px; background:#7BC96A; animation:tcpulse 1s ease-in-out infinite;"></div>
+                  <ion-icon name="eye-outline" style="font-size:18px; color:#666;"></ion-icon>
+                </div>
+                <div style="display:flex; gap:10px; margin-top:18px; font-size:11px; color:#666;">
+                  <div>Y — show passphrase</div>
+                  <div>·</div>
+                  <div>X — paste from clipboard</div>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- WIZARD 3: broker -->
+          <sc-if value="{{ isBroker }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:14px 16px 0;">
+              <div style="display:flex; align-items:baseline; gap:8px;">
+                <div style="font-size:16px; font-weight:500;">MQTT Broker</div>
+                <div style="font-size:11px; color:#666;">Step 3 of 3</div>
+              </div>
+              <div style="font-size:12px; color:#aaa; margin-top:2px;">Enter the broker credentials this rig's Headwaters was provisioned with.</div>
+              <div style="display:flex; flex-direction:column; gap:8px; margin-top:12px;">
+                <sc-for list="{{ brokerFields }}" as="f" hint-placeholder-count="4">
+                  <div style="display:flex; align-items:center; gap:12px; padding:8px 12px; background:#1a1a1a; border:2px solid {{ f.border }}; box-shadow:{{ f.glow }}; border-radius:8px;">
+                    <div style="width:104px; font-size:11px; color:#aaa; letter-spacing:0.4px; text-transform:uppercase;">{{ f.label }}</div>
+                    <div style="flex:1; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size:13px; color:{{ f.valueColor }};">{{ f.value }}</div>
+                    <ion-icon name="{{ f.icon }}" style="font-size:16px; color:#666;"></ion-icon>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; margin-top:14px; padding:9px 12px; background:rgba(116,254,0,0.10); border:1px solid #333; border-radius:8px;">
+                <ion-icon name="checkmark-circle" style="font-size:16px; color:#74FE00;"></ion-icon>
+                <div style="font-size:12px; color:#74FE00;">TLS handshake verified against ca.pem — 4 retained topics received</div>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- LAUNCHER A: paged grid -->
+          <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+            <div style="height:420px; padding:26px 20px 18px; display:flex; flex-direction:column; box-sizing:border-box;">
+              <div style="flex:1; display:grid; grid-template-columns:repeat(4, 1fr); grid-auto-rows:1fr; gap:10px;">
+                <sc-for list="{{ pageApps }}" as="app" hint-placeholder-count="8">
+                  <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px;">
+                    <div style="width:104px; height:104px; border-radius:16px; background:{{ app.tint }}; border:2px solid {{ app.border }}; box-shadow:{{ app.glow }}; display:flex; align-items:center; justify-content:center; transition:transform .2s ease;" style-hover="transform:scale(0.95)">
+                      <ion-icon name="{{ app.icon }}" style="font-size:52px; color:{{ app.glyph }};"></ion-icon>
+                    </div>
+                    <div style="font-size:12px; color:{{ app.labelColor }}; text-align:center; line-height:15px; max-width:132px;">{{ app.name }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex; justify-content:center; gap:7px; padding-top:14px;">
+                <sc-for list="{{ pageDots }}" as="dot" hint-placeholder-count="2">
+                  <div style="width:7px; height:7px; border-radius:9999px; background:{{ dot.bg }};"></div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- MQTT INSPECTOR -->
+          <sc-if value="{{ isMqtt }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex; height:422px;">
+              <div style="width:196px; border-right:1px solid #333; padding:10px 0; overflow:hidden;">
+                <div style="font-size:10px; color:#666; letter-spacing:1px; text-transform:uppercase; padding:0 12px 8px;">Topics</div>
+                <sc-for list="{{ topics }}" as="t" hint-placeholder-count="10">
+                  <div style="display:flex; align-items:center; gap:6px; padding:5px 12px; background:{{ t.bg }}; border-left:3px solid {{ t.mark }};">
+                    <div style="flex:1; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size:11px; color:{{ t.color }}; padding-left:{{ t.indent }};">{{ t.name }}</div>
+                    <div style="font-size:10px; color:#666;">{{ t.rate }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="flex:1; display:flex; flex-direction:column;">
+                <div style="display:flex; align-items:center; gap:8px; padding:8px 12px; border-bottom:1px solid #333;">
+                  <div style="font-size:13px; font-weight:500;">MQTT Inspector</div>
+                  <div style="font-size:10px; color:{{ pauseColor }}; border:1px solid {{ pauseColor }}; border-radius:16px; padding:1px 7px;">{{ pauseLabel }}</div>
+                  <div style="flex:1;"></div>
+                  <div style="font-size:10px; color:#666; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace;">46 msg/s</div>
+                </div>
+                <div style="flex:1; overflow:hidden;">
+                  <sc-for list="{{ messages }}" as="m" hint-placeholder-count="7">
+                    <div style="padding:5px 12px; background:{{ m.bg }}; border-bottom:1px solid #1a1a1a;">
+                      <div style="display:flex; gap:8px; align-items:baseline; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size:11px;">
+                        <div style="color:#666;">{{ m.time }}</div>
+                        <div style="flex:1; color:{{ m.topicColor }}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ m.topic }}</div>
+                        <div style="color:#666;">{{ m.flags }}</div>
+                      </div>
+                      <div style="font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size:11px; color:{{ m.payloadColor }}; margin-top:2px; white-space:pre-wrap; word-break:break-all;">{{ m.payload }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- DEVICE DISCOVERY -->
+          <sc-if value="{{ isDisco }}" hint-placeholder-val="{{ true }}">
+            <div style="padding:10px 14px 0;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <div style="font-size:14px; font-weight:500;">Device Discovery</div>
+                <div style="font-size:11px; color:#666; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace;">_trailcurrent._tcp</div>
+                <div style="flex:1;"></div>
+                <ion-icon name="sync-outline" style="font-size:14px; color:#52A441; animation:tcspin 1s linear infinite;"></ion-icon>
+                <div style="font-size:11px; color:#aaa;">{{ browseLeft }}</div>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:9px; margin-top:12px;">
+                <sc-for list="{{ devices }}" as="d" hint-placeholder-count="5">
+                  <div style="display:flex; align-items:center; gap:12px; padding:12px 12px; background:{{ d.bg }}; border:2px solid {{ d.border }}; box-shadow:{{ d.glow }}; border-radius:10px;">
+                    <div style="width:40px; height:40px; border-radius:9px; background:{{ d.tint }}; display:flex; align-items:center; justify-content:center;">
+                      <ion-icon name="{{ d.icon }}" style="font-size:22px; color:#000;"></ion-icon>
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                      <div style="display:flex; align-items:baseline; gap:7px;">
+                        <div style="font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace; font-size:13px; font-weight:500;">{{ d.hostname }}</div>
+                        <div style="font-size:11px; color:#aaa;">{{ d.type }}</div>
+                      </div>
+                      <div style="font-size:11px; color:#666; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace;">{{ d.meta }}</div>
+                    </div>
+                    <div style="font-size:11px; color:{{ d.stateColor }}; border:1px solid {{ d.stateColor }}; border-radius:16px; padding:2px 9px;">{{ d.state }}</div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- TOAST -->
+          <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; left:50%; bottom:48px; transform:translateX(-50%); background:#1a1a1a; border:1px solid #333; border-radius:16px; padding:6px 14px; font-size:12px; color:#aaa; z-index:3;">{{ toast }}</div>
+          </sc-if>
+
+          <!-- HINT BAR -->
+          <sc-if value="{{ showHints }}" hint-placeholder-val="{{ true }}">
+            <div style="position:absolute; left:0; right:0; bottom:0; height:30px; display:flex; align-items:center; gap:14px; padding:0 12px; background:rgba(0,0,0,0.9); backdrop-filter:blur(10px); border-top:1px solid #333;">
+              <sc-for list="{{ hints }}" as="h" hint-placeholder-count="4">
+                <div style="display:flex; align-items:center; gap:5px;">
+                  <div style="width:17px; height:17px; border-radius:9999px; background:{{ h.bg }}; color:{{ h.fg }}; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center;">{{ h.btn }}</div>
+                  <div style="font-size:11px; color:#aaa;">{{ h.label }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+
+        </div>
+
+        <!-- CONTROLS -->
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 8px 4px;">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div onClick="{{ padA.l }}" style="font-size:11px; font-weight:700; color:#aaa; background:#1a1a1a; border:1px solid #333; border-radius:8px; padding:6px 14px; cursor:pointer; transition:all .2s ease;" style-hover="background:#252525; color:#fff">L</div>
+            <div style="display:grid; grid-template-columns:repeat(3, 26px); grid-template-rows:repeat(3, 26px);">
+              <div></div>
+              <div onClick="{{ padA.up }}" style="background:#1a1a1a; border:1px solid #333; border-radius:5px; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525"><ion-icon name="chevron-up" style="font-size:15px; color:#aaa;"></ion-icon></div>
+              <div></div>
+              <div onClick="{{ padA.left }}" style="background:#1a1a1a; border:1px solid #333; border-radius:5px; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525"><ion-icon name="chevron-back" style="font-size:15px; color:#aaa;"></ion-icon></div>
+              <div style="background:#131313;"></div>
+              <div onClick="{{ padA.right }}" style="background:#1a1a1a; border:1px solid #333; border-radius:5px; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525"><ion-icon name="chevron-forward" style="font-size:15px; color:#aaa;"></ion-icon></div>
+              <div></div>
+              <div onClick="{{ padA.down }}" style="background:#1a1a1a; border:1px solid #333; border-radius:5px; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525"><ion-icon name="chevron-down" style="font-size:15px; color:#aaa;"></ion-icon></div>
+              <div></div>
+            </div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div onClick="{{ padA.y }}" style="width:34px; height:34px; border-radius:9999px; background:#1a1a1a; border:1px solid #333; color:#FFC107; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525">Y</div>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <div onClick="{{ padA.x }}" style="width:34px; height:34px; border-radius:9999px; background:#1a1a1a; border:1px solid #333; color:#48E6FE; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525">X</div>
+              <div onClick="{{ padA.b }}" style="width:34px; height:34px; border-radius:9999px; background:#1a1a1a; border:1px solid #333; color:#FF5453; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525">B</div>
+            </div>
+            <div onClick="{{ padA.a }}" style="width:34px; height:34px; border-radius:9999px; background:#52A441; border:1px solid #52A441; color:#000; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 0 20px rgba(82,164,65,0.5);" style-hover="background:#469038">A</div>
+            <div onClick="{{ padA.r }}" style="font-size:11px; font-weight:700; color:#aaa; background:#1a1a1a; border:1px solid #333; border-radius:8px; padding:6px 14px; cursor:pointer;" style-hover="background:#252525; color:#fff">R</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:8px; flex-wrap:wrap; width:696px;">
+        <sc-for list="{{ jumps }}" as="j" hint-placeholder-count="6">
+          <div onClick="{{ j.go }}" style="font-size:11px; color:{{ j.color }}; background:#1a1a1a; border:1px solid {{ j.border }}; border-radius:16px; padding:4px 11px; cursor:pointer;" style-hover="background:#252525">{{ j.label }}</div>
+        </sc-for>
+      </div>
+    </div>
+
+    <!-- OPTION 1B -->
+    <div id="1b" style="display:flex; flex-direction:column; gap:12px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="font-size:11px; font-weight:700; letter-spacing:1px; background:#52A441; color:#000; padding:3px 8px; border-radius:16px;">1B</div>
+        <div style="font-size:13px; color:#aaa;">Launcher direction B — all 12 apps on one page, each carrying a live status line</div>
+      </div>
+
+      <div onClick="{{ focusB }}" style="width:696px; background:#131313; border:1px solid #333; border-radius:26px; padding:28px 28px 20px; box-shadow:0 8px 24px rgba(0,0,0,0.18);">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:0 4px 10px;">
+          <div style="display:flex; gap:6px; align-items:center;">
+            <div style="width:7px; height:7px; border-radius:9999px; background:#74FE00;"></div>
+            <div style="width:7px; height:7px; border-radius:9999px; background:#FFC107;"></div>
+            <div style="width:7px; height:7px; border-radius:9999px; background:#333;"></div>
+          </div>
+          <div style="font-size:10px; letter-spacing:2px; color:#666; text-transform:uppercase;">PocketTerm35 · Pi 5</div>
+          <div style="font-size:10px; color:{{ kbdB }};">KEYBOARD</div>
+        </div>
+
+        <div style="width:640px; height:480px; background:#000; border:2px solid #333; border-radius:6px; overflow:hidden; position:relative;">
+          <div style="height:30px; display:flex; align-items:center; gap:10px; padding:0 12px; background:rgba(0,0,0,0.9); border-bottom:1px solid #333;">
+            <div style="font-size:12px; font-weight:500;">{{ clock }}</div>
+            <div style="flex:1;"></div>
+            <div style="display:flex; align-items:center; gap:5px; color:#74FE00; font-size:11px;">
+              <ion-icon name="wifi" style="font-size:14px;"></ion-icon>
+              <span>Airstream-27</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:5px; color:#74FE00; font-size:11px;">
+              <ion-icon name="server" style="font-size:13px;"></ion-icon>
+              <span>headwaters.local</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:4px; font-size:11px; color:#aaa;">
+              <ion-icon name="battery-half" style="font-size:16px;"></ion-icon>
+              <span>78%</span>
+            </div>
+          </div>
+
+          <div style="height:420px; box-sizing:border-box; padding:14px 14px 16px; display:grid; grid-template-columns:repeat(3, 1fr); grid-auto-rows:1fr; gap:10px;">
+            <sc-for list="{{ appsB }}" as="app" hint-placeholder-count="12">
+              <div style="display:flex; align-items:center; gap:11px; padding:8px 11px; background:{{ app.bg }}; border:2px solid {{ app.border }}; box-shadow:{{ app.glow }}; border-radius:12px;">
+                <div style="width:48px; height:48px; border-radius:11px; background:{{ app.tint }}; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                  <ion-icon name="{{ app.icon }}" style="font-size:26px; color:{{ app.glyph }};"></ion-icon>
+                </div>
+                <div style="min-width:0;">
+                  <div style="font-size:13px; font-weight:500; line-height:17px;">{{ app.short }}</div>
+                  <div style="font-size:11px; color:{{ app.statusColor }}; line-height:14px; font-family:'SF Mono', ui-monospace, Menlo, Consolas, monospace;">{{ app.status }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ bToast }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; left:50%; bottom:48px; transform:translateX(-50%); background:#1a1a1a; border:1px solid #333; border-radius:16px; padding:6px 14px; font-size:12px; color:#aaa; z-index:3;">{{ bToast }}</div>
+          </sc-if>
+
+          <div style="position:absolute; left:0; right:0; bottom:0; height:30px; display:flex; align-items:center; gap:14px; padding:0 12px; background:rgba(0,0,0,0.9); border-top:1px solid #333;">
+            <sc-for list="{{ hintsB }}" as="h" hint-placeholder-count="4">
+              <div style="display:flex; align-items:center; gap:5px;">
+                <div style="width:17px; height:17px; border-radius:9999px; background:{{ h.bg }}; color:{{ h.fg }}; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center;">{{ h.btn }}</div>
+                <div style="font-size:11px; color:#aaa;">{{ h.label }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 8px 4px;">
+          <div style="display:flex; align-items:center; gap:14px;">
+          <div onClick="{{ padB.l }}" style="font-size:11px; font-weight:700; color:#aaa; background:#1a1a1a; border:1px solid #333; border-radius:8px; padding:6px 14px; cursor:pointer; transition:all .2s ease;" style-hover="background:#252525; color:#fff">L</div>
+          <div style="display:grid; grid-template-columns:repeat(3, 26px); grid-template-rows:repeat(3, 26px);">
+            <div></div>
+            <div onClick="{{ padB.up }}" style="background:#1a1a1a; border:1px solid #333; border-radius:5px; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525"><ion-icon name="chevron-up" style="font-size:15px; color:#aaa;"></ion-icon></div>
+            <div></div>
+            <div onClick="{{ padB.left }}" style="background:#1a1a1a; border:1px solid #333; border-radius:5px; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525"><ion-icon name="chevron-back" style="font-size:15px; color:#aaa;"></ion-icon></div>
+            <div style="background:#131313;"></div>
+            <div onClick="{{ padB.right }}" style="background:#1a1a1a; border:1px solid #333; border-radius:5px; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525"><ion-icon name="chevron-forward" style="font-size:15px; color:#aaa;"></ion-icon></div>
+            <div></div>
+            <div onClick="{{ padB.down }}" style="background:#1a1a1a; border:1px solid #333; border-radius:5px; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525"><ion-icon name="chevron-down" style="font-size:15px; color:#aaa;"></ion-icon></div>
+            <div></div>
+          </div>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div onClick="{{ padB.y }}" style="width:34px; height:34px; border-radius:9999px; background:#1a1a1a; border:1px solid #333; color:#FFC107; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525">Y</div>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <div onClick="{{ padB.x }}" style="width:34px; height:34px; border-radius:9999px; background:#1a1a1a; border:1px solid #333; color:#48E6FE; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525">X</div>
+              <div onClick="{{ padB.b }}" style="width:34px; height:34px; border-radius:9999px; background:#1a1a1a; border:1px solid #333; color:#FF5453; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer;" style-hover="background:#252525">B</div>
+            </div>
+            <div onClick="{{ padB.a }}" style="width:34px; height:34px; border-radius:9999px; background:#52A441; border:1px solid #52A441; color:#000; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 0 20px rgba(82,164,65,0.5);" style-hover="background:#469038">A</div>
+            <div onClick="{{ padB.r }}" style="font-size:11px; font-weight:700; color:#aaa; background:#1a1a1a; border:1px solid #333; border-radius:8px; padding:6px 14px; cursor:pointer;" style-hover="background:#252525; color:#fff">R</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;hintBar&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Chrome&quot;}}">
+const APPS = [
+  { id:'mqtt',  name:'MQTT Inspector',  short:'MQTT Inspector', icon:'pulse',              tint:'#52A441', glyph:'#000', status:'46 msg/s',      statusColor:'#74FE00' },
+  { id:'disco', name:'Device Discovery',short:'Discovery',      icon:'scan',               tint:'#48E6FE', glyph:'#000', status:'5 found',       statusColor:'#48E6FE' },
+  { id:'cap',   name:'Capture',         short:'Capture',        icon:'recording',          tint:'#FF5453', glyph:'#000', status:'idle',          statusColor:'#666' },
+  { id:'fw',    name:'Firmware',        short:'Firmware',       icon:'cloud-upload',       tint:'#7BC96A', glyph:'#000', status:'2 pending',     statusColor:'#FFC107' },
+  { id:'net',   name:'Network',         short:'Network',        icon:'wifi',               tint:'#3D7B31', glyph:'#fff', status:'Airstream-27',  statusColor:'#74FE00' },
+  { id:'term',  name:'Terminal',        short:'Terminal',       icon:'terminal',           tint:'#2a2a2a', glyph:'#7BC96A', status:'pi@pocketterm', statusColor:'#666' },
+  { id:'logs',  name:'Logs',            short:'Logs',           icon:'document-text',      tint:'#4a4a4a', glyph:'#fff', status:'3 warnings',    statusColor:'#FFC107' },
+  { id:'can',   name:'CAN Sniffer',     short:'CAN Sniffer',    icon:'swap-vertical',      tint:'#FFC107', glyph:'#000', status:'500 kbit/s',    statusColor:'#74FE00' },
+  { id:'hw',    name:'Headwaters',      short:'Headwaters',     icon:'server',             tint:'#52A441', glyph:'#000', status:'6/6 up',        statusColor:'#74FE00' },
+  { id:'gnss',  name:'GNSS & Map',      short:'GNSS & Map',     icon:'location',           tint:'#48E6FE', glyph:'#000', status:'9 sats · 3D',   statusColor:'#74FE00' },
+  { id:'check', name:'Checklist',       short:'Checklist',      icon:'checkbox',           tint:'#7BC96A', glyph:'#000', status:'4 of 11',       statusColor:'#aaa' },
+  { id:'set',   name:'Settings',        short:'Settings',        icon:'settings',          tint:'#4a4a4a', glyph:'#fff', status:'v0.4.1',        statusColor:'#666' }
+];
+
+const NETWORKS = [
+  { ssid:'Airstream-27',    meta:'WPA2 · 5 GHz · ch 44',    rssi:'-42 dBm', icon:'lock-closed', secure:true },
+  { ssid:'headwaters-ap',   meta:'WPA2 · 2.4 GHz · ch 6',   rssi:'-58 dBm', icon:'lock-closed', secure:true },
+  { ssid:'RockyRidge_Guest',meta:'Open · 2.4 GHz · captive', rssi:'-71 dBm', icon:'wifi',       secure:false },
+  { ssid:'trailer-service', meta:'WPA2 · 2.4 GHz · hidden', rssi:'-77 dBm', icon:'lock-closed', secure:true }
+];
+
+const BROKER = [
+  { label:'Broker URL', value:'mqtts://headwaters.local:8883', icon:'create-outline' },
+  { label:'Username',   value:'trailcurrent',                  icon:'create-outline' },
+  { label:'Password',   value:'••••••••••••',                  icon:'eye-outline' },
+  { label:'CA Cert',    value:'ca.pem — imported from USB',    icon:'document-attach-outline' }
+];
+
+const TOPICS = [
+  { name:'local/',                  rate:'',      depth:0, head:true },
+  { name:'energy/status',           rate:'2/s',   depth:1 },
+  { name:'water/status',            rate:'0.2/s', depth:1 },
+  { name:'gps/latlon',              rate:'1/s',   depth:1 },
+  { name:'level/tilt',              rate:'1/s',   depth:1 },
+  { name:'airquality/status',       rate:'0.5/s', depth:1 },
+  { name:'spoor/0/inputs',          rate:'4/s',   depth:1 },
+  { name:'can/',                    rate:'',      depth:0, head:true },
+  { name:'inbound',                 rate:'46/s',  depth:1 },
+  { name:'outbound',                rate:'0/s',   depth:1 },
+  { name:'discovery/',              rate:'',      depth:0, head:true },
+  { name:'browse/found',            rate:'--',    depth:1 }
+];
+
+const MESSAGES = [
+  { time:'14:22:07.114', topic:'local/energy/status',   flags:'q0',    payload:'{"batteryVoltage":13.4,"solarInput":850,"stateOfCharge":92,"chargeStatus":"Float"}' },
+  { time:'14:22:07.098', topic:'can/inbound',           flags:'q0',    payload:'{"identifier":"0x004","data_length_code":8,"data":[[0,0,0,1,0,1,0,0]…]}' },
+  { time:'14:22:06.902', topic:'local/level/tilt',      flags:'q0',    payload:'{"pitch":0.8,"roll":-2.4,"status":"Tilted right"}' },
+  { time:'14:22:06.741', topic:'local/gps/latlon',      flags:'q0 R',  payload:'{"latitude":44.42711,"longitude":-110.58839}' },
+  { time:'14:22:06.503', topic:'local/spoor/0/inputs',  flags:'q0',    payload:'{"inputs":[1,0,0,1,0,0,0,0],"instance":0}' },
+  { time:'14:22:05.980', topic:'local/water/status',    flags:'q0 R',  payload:'{"fresh":72,"grey":38,"black":12}' },
+  { time:'14:22:05.446', topic:'local/airquality/status',flags:'q0',   payload:'{"co2":1250,"voc":88,"aqi":"Moderate"}' },
+  { time:'14:22:04.911', topic:'local/system/stats',    flags:'q1 R',  payload:'{"cpu":18.4,"mem":41.2,"uptime":"6d 02h","disk":63}' }
+];
+
+const DEVICES = [
+  { hostname:'bearing-3f2a',   type:'bearing',   meta:'fw 1.4.2 · addr 12 · canid 0x150 · confirm', icon:'compass',   tint:'#48E6FE', onboard:'Confirm' },
+  { hostname:'solstice-08c1',  type:'solstice',  meta:'fw 1.3.0 · addr 4 · canid 0x120 · confirm',  icon:'sunny',     tint:'#FFC107', onboard:'Confirm' },
+  { hostname:'tapper-b71d',    type:'tapper',    meta:'fw 2.0.1 · target torrent · canid 0x025',    icon:'flash',     tint:'#7BC96A', onboard:'Confirm' },
+  { hostname:'playbill-galley',type:'playbill',  meta:'deviceId galley · canInstance 1 · claim',    icon:'desktop',   tint:'#52A441', onboard:'Claim' },
+  { hostname:'spoor-4a90',     type:'spoor',     meta:'fw 1.1.7 · addr 9 · canid 0x018 · confirm',  icon:'git-branch',tint:'#4a4a4a', onboard:'Confirm' }
+];
+
+const HINTS = {
+  wifi:   [['A','Join'],['B','Back'],['X','Rescan'],['Y','Manual SSID']],
+  pass:   [['A','Continue'],['B','Back'],['Y','Show'],['X','Paste']],
+  broker: [['A','Test & Save'],['B','Back'],['X','Import ca.pem'],['Y','Skip TLS']],
+  home:   [['A','Open'],['B','Back'],['X','Search'],['L/R','Page']],
+  mqtt:   [['A','Expand'],['B','Home'],['X','Pause'],['Y','Capture']],
+  disco:  [['A','Confirm'],['B','Home'],['X','Rescan'],['Y','Details']]
+};
+
+const BTN_COLORS = {
+  A:['#52A441','#000'], B:['#FF5453','#000'], X:['#48E6FE','#000'],
+  Y:['#FFC107','#000'], 'L/R':['#2a2a2a','#aaa']
+};
+
+class Component extends DCLogic {
+  state = {
+    screen:'boot', boot:0, focus:0, page:0, msgSel:0, paused:false,
+    netSel:0, brokerSel:0, devSel:0, confirmed:[], toast:'', active:'a', bFocus:0
+  };
+
+  componentDidMount() {
+    this._key = (e) => {
+      const map = { ArrowUp:'up', ArrowDown:'down', ArrowLeft:'left', ArrowRight:'right',
+                    Enter:'a', Escape:'b', x:'x', X:'x', y:'y', Y:'y', q:'l', e:'r' };
+      const btn = map[e.key];
+      if (!btn) return;
+      e.preventDefault();
+      if (this.state.active === 'b') this.pressB(btn); else this.pressA(btn);
+    };
+    window.addEventListener('keydown', this._key);
+    this._boot = setInterval(() => {
+      this.setState(s => {
+        if (s.screen !== 'boot') return s;
+        if (s.boot >= 100) { clearInterval(this._boot); return { screen:'wifi' }; }
+        return { boot: s.boot + 12 };
+      });
+    }, 220);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener('keydown', this._key);
+    clearInterval(this._boot);
+  }
+
+  toast(text) {
+    this.setState({ toast: text });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: '' }), 1600);
+  }
+
+  pressA(btn) {
+    const s = this.state;
+    const clamp = (n, max) => Math.max(0, Math.min(max, n));
+    if (s.screen === 'boot') { if (btn === 'a') this.setState({ screen:'wifi' }); return; }
+
+    if (s.screen === 'wifi') {
+      if (btn === 'up')   return this.setState({ netSel: clamp(s.netSel - 1, NETWORKS.length - 1) });
+      if (btn === 'down') return this.setState({ netSel: clamp(s.netSel + 1, NETWORKS.length - 1) });
+      if (btn === 'a')    return NETWORKS[s.netSel].secure ? this.setState({ screen:'pass' }) : this.setState({ screen:'broker' });
+      if (btn === 'x')    return this.toast('Rescanning · 4 networks');
+      return;
+    }
+    if (s.screen === 'pass') {
+      if (btn === 'a') return this.setState({ screen:'broker' });
+      if (btn === 'b') return this.setState({ screen:'wifi' });
+      if (btn === 'y') return this.toast('Passphrase shown');
+      return;
+    }
+    if (s.screen === 'broker') {
+      if (btn === 'up')   return this.setState({ brokerSel: clamp(s.brokerSel - 1, BROKER.length - 1) });
+      if (btn === 'down') return this.setState({ brokerSel: clamp(s.brokerSel + 1, BROKER.length - 1) });
+      if (btn === 'a')    { this.toast('Connection successful'); return this.setState({ screen:'home', focus:0 }); }
+      if (btn === 'b')    return this.setState({ screen:'pass' });
+      return;
+    }
+    if (s.screen === 'home') {
+      const pageApps = APPS.slice(s.page * 8, s.page * 8 + 8);
+      const cols = 4;
+      if (btn === 'left')  return this.setState({ focus: clamp(s.focus - 1, pageApps.length - 1) });
+      if (btn === 'right') return this.setState({ focus: clamp(s.focus + 1, pageApps.length - 1) });
+      if (btn === 'up')    return this.setState({ focus: clamp(s.focus - cols, pageApps.length - 1) });
+      if (btn === 'down')  return this.setState({ focus: clamp(s.focus + cols, pageApps.length - 1) });
+      if (btn === 'l')     return this.setState({ page: 0, focus: 0 });
+      if (btn === 'r')     return this.setState({ page: 1, focus: 0 });
+      if (btn === 'a') {
+        const app = pageApps[s.focus];
+        if (!app) return;
+        if (app.id === 'mqtt')  return this.setState({ screen:'mqtt', msgSel:0 });
+        if (app.id === 'disco') return this.setState({ screen:'disco', devSel:0 });
+        return this.toast(app.name + ' — not in this build');
+      }
+      if (btn === 'b') return this.setState({ screen:'wifi' });
+      if (btn === 'x') return this.toast('Search apps');
+      return;
+    }
+    if (s.screen === 'mqtt') {
+      if (btn === 'up')   return this.setState({ msgSel: clamp(s.msgSel - 1, MESSAGES.length - 1) });
+      if (btn === 'down') return this.setState({ msgSel: clamp(s.msgSel + 1, MESSAGES.length - 1) });
+      if (btn === 'x')    { this.setState({ paused: !s.paused }); return this.toast(s.paused ? 'Live' : 'Stream paused'); }
+      if (btn === 'y')    return this.toast('Capturing to capture-0412.jsonl');
+      if (btn === 'b')    return this.setState({ screen:'home' });
+      return;
+    }
+    if (s.screen === 'disco') {
+      if (btn === 'up')   return this.setState({ devSel: clamp(s.devSel - 1, DEVICES.length - 1) });
+      if (btn === 'down') return this.setState({ devSel: clamp(s.devSel + 1, DEVICES.length - 1) });
+      if (btn === 'a') {
+        const d = DEVICES[s.devSel];
+        this.toast(d.onboard === 'Claim' ? 'Claiming ' + d.hostname : 'Confirm marker sent to ' + d.hostname);
+        return this.setState({ confirmed: s.confirmed.concat([d.hostname]) });
+      }
+      if (btn === 'b') return this.setState({ screen:'home' });
+      if (btn === 'x') return this.toast('Rescanning _trailcurrent._tcp');
+      return;
+    }
+  }
+
+  toastB(text) {
+    this.setState({ bToast: text });
+    clearTimeout(this._tb);
+    this._tb = setTimeout(() => this.setState({ bToast: '' }), 1600);
+  }
+
+  pressB(btn) {
+    const s = this.state;
+    const cols = 3, max = APPS.length - 1;
+    const clamp = (n) => Math.max(0, Math.min(max, n));
+    const app = APPS[s.bFocus];
+    if (btn === 'left')  return this.setState({ bFocus: clamp(s.bFocus - 1) });
+    if (btn === 'right') return this.setState({ bFocus: clamp(s.bFocus + 1) });
+    if (btn === 'up')    return this.setState({ bFocus: clamp(s.bFocus - cols) });
+    if (btn === 'down')  return this.setState({ bFocus: clamp(s.bFocus + cols) });
+    if (btn === 'l')     return this.setState({ bFocus: 0 });
+    if (btn === 'r')     return this.setState({ bFocus: max });
+    if (btn === 'a')     return this.toastB('Open ' + app.name);
+    if (btn === 'b')     return this.toastB('Already home');
+    if (btn === 'x')     return this.toastB('Search apps');
+    if (btn === 'y')     return this.toastB(app.name + ' pinned to top row');
+  }
+
+  pad(which) {
+    const send = (btn) => (e) => {
+      if (e && e.stopPropagation) e.stopPropagation();
+      this.setState({ active: which });
+      if (which === 'b') this.pressB(btn); else this.pressA(btn);
+    };
+    return { up:send('up'), down:send('down'), left:send('left'), right:send('right'),
+             a:send('a'), b:send('b'), x:send('x'), y:send('y'), l:send('l'), r:send('r') };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const sel = (on, color) => ({
+      border: on ? (color || '#7BC96A') : '#333',
+      glow: on ? '0 0 20px rgba(82,164,65,0.5)' : 'none',
+      bg: on ? '#252525' : '#1a1a1a'
+    });
+    const pageApps = APPS.slice(s.page * 8, s.page * 8 + 8).map((a, i) => {
+      const on = i === s.focus;
+      return Object.assign({}, a, {
+        border: on ? '#7BC96A' : 'rgba(0,0,0,0)',
+        glow: on ? '0 0 20px rgba(82,164,65,0.5)' : 'none',
+        labelColor: on ? '#fff' : '#aaa'
+      });
+    });
+    const hintRow = (rows) => (rows || []).map(([btn, label]) => {
+      const c = BTN_COLORS[btn] || ['#2a2a2a', '#aaa'];
+      return { btn, label, bg: c[0], fg: c[1] };
+    });
+    const showHints = this.props.hintBar ?? true;
+
+    return {
+      isBoot: s.screen === 'boot',
+      isWifi: s.screen === 'wifi',
+      isPass: s.screen === 'pass',
+      isBroker: s.screen === 'broker',
+      isHome: s.screen === 'home',
+      isMqtt: s.screen === 'mqtt',
+      isDisco: s.screen === 'disco',
+      showChrome: s.screen !== 'boot',
+      showHints: showHints && s.screen !== 'boot',
+      bootPct: Math.min(100, s.boot) + '%',
+      bootLine: s.boot < 40 ? 'mounting overlay · rootfs ro' : (s.boot < 80 ? 'starting mosquitto client' : 'scanning wlan0'),
+      clock: '14:22',
+      wifiLabel: s.screen === 'wifi' || s.screen === 'pass' ? 'not joined' : 'Airstream-27',
+      wifiColor: s.screen === 'wifi' || s.screen === 'pass' ? '#666' : '#74FE00',
+      brokerLabel: ['home','mqtt','disco'].indexOf(s.screen) >= 0 ? 'headwaters.local' : '--',
+      brokerColor: ['home','mqtt','disco'].indexOf(s.screen) >= 0 ? '#74FE00' : '#666',
+      toast: s.toast,
+      bToast: s.bToast,
+      hints: hintRow(HINTS[s.screen]),
+      hintsB: hintRow([['A','Open'],['B','Back'],['X','Search'],['Y','Pin to top row']]),
+      kbdA: s.active === 'a' ? '#7BC96A' : '#333',
+      kbdB: s.active === 'b' ? '#7BC96A' : '#333',
+      focusA: () => this.setState({ active:'a' }),
+      focusB: () => this.setState({ active:'b' }),
+      padA: this.pad('a'),
+      padB: this.pad('b'),
+
+      networks: NETWORKS.map((n, i) => {
+        const st = sel(i === s.netSel);
+        return Object.assign({}, n, st, { iconColor: i === s.netSel ? '#7BC96A' : '#666' });
+      }),
+      pickedSsid: NETWORKS[s.netSel].ssid,
+      passMask: '•••••••••••',
+      brokerFields: BROKER.map((f, i) => {
+        const on = i === s.brokerSel;
+        return Object.assign({}, f, {
+          border: on ? '#52A441' : '#333',
+          glow: on ? '0 0 0 3px rgba(82,164,65,0.2)' : 'none',
+          valueColor: on ? '#fff' : '#aaa'
+        });
+      }),
+
+      pageApps,
+      pageDots: [0, 1].map(i => ({ bg: i === s.page ? '#52A441' : '#333' })),
+      appsB: APPS.map((a, i) => {
+        const on = i === s.bFocus;
+        return Object.assign({}, a, {
+          bg: on ? '#252525' : '#1a1a1a',
+          border: on ? '#7BC96A' : '#333',
+          glow: on ? '0 0 20px rgba(82,164,65,0.5)' : 'none'
+        });
+      }),
+
+      topics: TOPICS.map(t => ({
+        name: t.name,
+        rate: t.rate,
+        indent: t.depth ? '10px' : '0px',
+        color: t.head ? '#fff' : '#aaa',
+        bg: 'transparent',
+        mark: t.head ? '#52A441' : 'transparent'
+      })),
+      messages: MESSAGES.map((m, i) => {
+        const on = i === s.msgSel;
+        return {
+          time: m.time,
+          topic: m.topic,
+          flags: m.flags,
+          payload: on ? m.payload : (m.payload.length > 74 ? m.payload.slice(0, 74) + '…' : m.payload),
+          bg: on ? '#252525' : 'transparent',
+          topicColor: on ? '#7BC96A' : '#48E6FE',
+          payloadColor: on ? '#fff' : '#aaa'
+        };
+      }),
+      paused: s.paused,
+      pauseLabel: s.paused ? 'PAUSED' : 'LIVE',
+      pauseColor: s.paused ? '#FFC107' : '#74FE00',
+
+      browseLeft: '18s left',
+      devices: DEVICES.map((d, i) => {
+        const on = i === s.devSel;
+        const done = s.confirmed.indexOf(d.hostname) >= 0;
+        return Object.assign({}, d, {
+          bg: on ? '#252525' : '#1a1a1a',
+          border: on ? '#7BC96A' : '#333',
+          glow: on ? '0 0 20px rgba(82,164,65,0.5)' : 'none',
+          state: done ? 'Onboarded' : d.onboard,
+          stateColor: done ? '#74FE00' : (d.onboard === 'Claim' ? '#48E6FE' : '#aaa')
+        });
+      }),
+
+      jumps: [
+        ['Boot','boot'], ['Select Network','wifi'], ['Passphrase','pass'], ['Broker','broker'],
+        ['Launcher','home'], ['MQTT Inspector','mqtt'], ['Discovery','disco']
+      ].map(([label, screen]) => ({
+        label,
+        color: s.screen === screen ? '#7BC96A' : '#aaa',
+        border: s.screen === screen ? '#7BC96A' : '#333',
+        go: () => {
+          this.setState({ active:'a', screen, focus:0, msgSel:0, devSel:0, boot: screen === 'boot' ? 0 : 100 });
+          if (screen === 'boot') {
+            clearInterval(this._boot);
+            this._boot = setInterval(() => this.setState(st => {
+              if (st.screen !== 'boot') return st;
+              if (st.boot >= 100) { clearInterval(this._boot); return { screen:'wifi' }; }
+              return { boot: st.boot + 12 };
+            }), 220);
+          }
+        }
+      }))
+    };
+  }
+}
+
+</script>
+</body>
+</html>

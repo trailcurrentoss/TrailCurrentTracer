@@ -1,0 +1,13 @@
+{
+  "name": "tracer-ui",
+  "private": true,
+  "version": "0.4.1",
+  "type": "module",
+  "description": "Tracer GUI — pure JavaScript ES modules, no build step, no framework.",
+  "scripts": {
+    "icons": "node scripts/gen-icons.mjs"
+  },
+  "devDependencies": {
+    "ionicons": "^7.4.0"
+  }
+}

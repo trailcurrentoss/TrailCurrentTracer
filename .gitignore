@@ -1,0 +1,71 @@
+# AI agent configuration (local only — never commit)
+.claude
+.claude/
+.claude.md
+CLAUDE.md
+CLAUDE.MD
+.cursorrules
+.cursor/
+.github/copilot*
+.aider*
+.continue/
+.codeium/
+.tabnine*
+.sourcery.yaml
+
+# Build output
+image/work/
+image/deploy/
+*.img
+*.img.xz
+*.img.sparse
+*.sha256
+
+# Rendered boot splash — `make splash` regenerates both from the script
+image/splash/tracer-splash.tga
+image/splash/tracer-splash.png
+
+# verify-overlays scratch files (left behind when the diff fails)
+.vendor.props
+.tracer.props
+
+# `make dev-shot` screenshot of the board's panel
+/panel.png
+
+# Compiled device tree overlays are build artifacts — the .dts is the source.
+# The vendored Waveshare blobs under image/vendor/ are the exception and ARE
+# tracked (upstream ships no source); they are force-added below.
+image/overlays/*.dtbo
+!image/vendor/**/*.dtbo
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node / Vite
+node_modules/
+tracer-ui/dist/
+.vite/
+*.tsbuildinfo
+
+# Test + screenshot output
+test-results/
+playwright-report/
+docs/screenshots/*.actual.png
+
+# Local runtime state
+*.log
+.env
+.DS_Store
+
+# Per-workstation dev config: which board to talk to, which key to use.
+# A bench's address is local to that bench, and a value committed here would
+# aim every other clone at a machine on someone else's network. The tracked
+# template is scripts/dev.env.example; the real file is never committed.
+scripts/dev.env

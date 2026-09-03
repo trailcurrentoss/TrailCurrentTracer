@@ -1,0 +1,62 @@
+[Unit]
+Description=Tracer kiosk GUI
+After=tracerd.service seatd.service
+Requires=tracerd.service
+# The daemon serves the UI bundle, so there is nothing to show without it.
+BindsTo=tracerd.service
+
+[Service]
+Type=simple
+# Substituted with the device account name at image build time. See
+# image/systemd/tracerd.service and image/build.sh.
+User=@TRACER_USER@
+Group=@TRACER_USER@
+# NOT "seat". Debian has no group by that name — seatd.service runs
+# `seatd -g video`, so the seat socket is group-owned by video, which is
+# already listed here. systemd treats an unknown name in SupplementaryGroups
+# as a fatal start error (216/GROUP), so the unit never ran at all: with
+# Restart=always that is a silent crash-loop and a black panel.
+SupplementaryGroups=video input render
+
+# NOT /run/user/1000. That path is created by logind for a login SESSION, or
+# for a user marked lingering. A system unit is neither, and this image has no
+# tty1 autologin, so nothing would ever create it: cage would start, find
+# XDG_RUNTIME_DIR pointing at a directory that does not exist, and libwayland
+# would fail with "XDG_RUNTIME_DIR is invalid or not set" — a crash-loop under
+# Restart=always, showing as a black panel with no error on screen.
+#
+# RuntimeDirectory makes systemd create /run/tracer-ui as part of starting
+# THIS unit, owned by User=/Group= above, and remove it on stop. No logind, no
+# linger, and no ordering race against another unit having run first.
+RuntimeDirectory=tracer-ui
+RuntimeDirectoryMode=0700
+Environment=XDG_RUNTIME_DIR=/run/tracer-ui
+Environment=WLR_LIBINPUT_NO_DEVICES=1
+# Chromium writes a profile; /var/lib/tracer is the only writable location.
+Environment=HOME=/var/lib/tracer
+
+# Cage: one fullscreen app, no desktop, no window chrome.
+#
+# NO -s. It was here with a comment claiming it hides the cursor. It does not
+# — `cage -h` lists it as "Allow VT switching", so all it did was let anyone
+# Ctrl+Alt+F2 out of the kiosk to a console. Cage 0.2.0 has no cursor flag at
+# all (the full set is -d -h -m -s -v), so the cursor is hidden in the UI's
+# own CSS instead; see tracer-ui/src/styles/tokens.css.
+ExecStart=/usr/bin/cage -- /usr/bin/chromium \
+    --kiosk --ozone-platform=wayland \
+    --app=http://127.0.0.1:8710/ \
+    --noerrdialogs --disable-infobars --hide-scrollbars \
+    --disable-features=Translate,TranslateUI \
+    --check-for-update-interval=31536000 \
+    --force-device-scale-factor=1 \
+    --enable-gpu-rasterization \
+    --user-data-dir=/var/lib/tracer/chromium
+
+Restart=always
+RestartSec=1
+
+StateDirectory=tracer
+ReadWritePaths=/var/lib/tracer
+
+[Install]
+WantedBy=graphical.target

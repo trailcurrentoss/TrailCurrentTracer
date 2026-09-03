@@ -1,0 +1,82 @@
+#!/bin/sh
+# Generate one system locale. Installed as /usr/local/sbin/tracer-locale-gen.
+#
+# WHY THIS EXISTS
+# ---------------
+# Debian's locale-gen takes no locale arguments. Its only option is
+# --keep-existing; everything else it does is driven by whatever is
+# uncommented in /etc/locale.gen. So `locale-gen fr_FR.UTF-8` does NOT
+# generate fr_FR.UTF-8 — it silently regenerates the locales already listed
+# and exits 0. A sudo grant on locale-gen alone therefore cannot add a locale,
+# and the Settings picker could only ever offer the handful baked into the
+# image at build time.
+#
+# Adding a locale means editing /etc/locale.gen, which needs root. Rather than
+# grant the daemon a way to write into /etc, that edit is confined here: one
+# root-owned script, one argument, validated against the system's own list.
+#
+# WHY IT VERIFIES INSTEAD OF TRUSTING EXIT CODES
+# localectl will happily accept a LANG that was never generated. The system
+# then falls back to C at the next boot with nothing shown anywhere — the
+# operator sees the locale they picked in Settings and a device behaving as
+# though they had not. locale-gen also swallows localedef failures (`|| :` in
+# its own loop), so its exit status proves nothing. The only trustworthy
+# check is asking `locale -a` afterwards, which is what this does.
+#
+# Usage:  tracer-locale-gen en_US.UTF-8
+# Exit:   0 generated (or already present), non-zero with a reason on stderr.
+
+set -eu
+
+SUPPORTED=/usr/share/i18n/SUPPORTED
+LOCALEGEN=/etc/locale.gen
+
+die() { echo "$*" >&2; exit 1; }
+
+[ $# -eq 1 ] || die "usage: tracer-locale-gen <locale>"
+LOCALE="$1"
+
+# Reject anything that is not a locale this system knows how to build. This is
+# the security boundary as much as the correctness one: the sudoers entry
+# permits an argument, and this is what constrains it. Matching against the
+# distribution's own SUPPORTED list means no pattern here has to be kept in
+# sync with the set of valid locale names.
+[ -r "$SUPPORTED" ] || die "$SUPPORTED is missing; cannot validate the locale"
+ENTRY=$(grep -E "^[[:space:]]*${LOCALE} " "$SUPPORTED" | head -n1 || true)
+[ -n "$ENTRY" ] || die "$LOCALE is not a locale this system supports"
+
+# "en_US.UTF-8 UTF-8" -> charset "UTF-8". Taken from SUPPORTED rather than
+# guessed from the locale name: the two are not always the same spelling.
+CHARSET=$(echo "$ENTRY" | awk '{print $2}')
+[ -n "$CHARSET" ] || die "$SUPPORTED has no charset for $LOCALE"
+
+# Already generated is success, not a no-op to report as failure. `locale -a`
+# reports en_US.utf8 while SUPPORTED says en_US.UTF-8, so compare loosely.
+already() {
+    locale -a 2>/dev/null \
+      | tr '[:upper:]' '[:lower:]' | tr -d '-' \
+      | grep -qxF "$(echo "$LOCALE" | tr '[:upper:]' '[:lower:]' | tr -d '-')"
+}
+
+if already; then
+    echo "$LOCALE is already generated"
+    exit 0
+fi
+
+[ -w "$LOCALEGEN" ] || die "$LOCALEGEN is not writable (run as root)"
+
+# Uncomment an existing line if there is one, otherwise append. Appending a
+# duplicate would make locale-gen build it twice on every future run.
+if grep -qE "^[[:space:]]*#[[:space:]]*${LOCALE} ${CHARSET}[[:space:]]*$" "$LOCALEGEN"; then
+    sed -i "s/^[[:space:]]*#[[:space:]]*\(${LOCALE} ${CHARSET}\)[[:space:]]*$/\1/" "$LOCALEGEN"
+elif ! grep -qE "^[[:space:]]*${LOCALE} ${CHARSET}[[:space:]]*$" "$LOCALEGEN"; then
+    echo "$LOCALE $CHARSET" >> "$LOCALEGEN"
+fi
+
+# --keep-existing so the locales already built are not torn down and rebuilt.
+# Without it locale-gen deletes /usr/lib/locale/locale-archive first, which
+# briefly leaves the running system with no locales at all.
+locale-gen --keep-existing
+
+already || die "$LOCALE was added to $LOCALEGEN but locale-gen did not produce it"
+echo "$LOCALE generated"

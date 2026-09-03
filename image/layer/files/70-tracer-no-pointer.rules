@@ -1,0 +1,46 @@
+# Stop a mouse cursor appearing on the panel.
+#
+# THE PROBLEM
+# The PocketTerm35's RP2040 presents a COMPOSITE USB HID device: a keyboard
+# collection (which is the only one Tracer uses — see tracerd/keymap.default.json,
+# captured from hardware) and a mouse collection that reports nothing, because
+# there is no pointing device on the unit. Touch arrives separately from the
+# GT911 over I2C.
+#
+# That idle mouse collection is enough for libinput to enumerate a pointer, and
+# a compositor with a pointer draws a cursor. On the panel that is a defect: the
+# operator has no mouse, so an arrow sitting on screen is confusing and it
+# obscures the UI.
+#
+# WHY CSS DOES NOT FIX IT
+# tracer-ui already sets `cursor: none` unconditionally (tracer-ui/src/styles/
+# tokens.css) and every element inherits it. That is a CLIENT instruction:
+# Chromium can only act on it for its own surface, and only once the pointer has
+# entered that surface. Nothing on this unit ever moves the pointer, so the
+# compositor's own cursor can be drawn and never handed over to the client.
+# The same CSS does hide the cursor under Raspberry Pi OS, where a real mouse is
+# being moved — which is exactly why the CSS looked correct and was not enough.
+#
+# Removing the pointer at the source is the fix: no pointer device, no cursor,
+# nothing for the compositor to draw.
+#
+# SAFETY
+# Matched narrowly on purpose. This device also carries the keyboard, and every
+# button on the unit arrives through it — ignoring the wrong interface would
+# leave the operator with a device that cannot be navigated at all.
+#
+#   ID_INPUT_MOUSE=="1"      only an interface libinput sees as a pointer
+#   ID_INPUT_KEYBOARD!="1"   never the keyboard, even if one node claims both
+#   ID_INPUT_TOUCHSCREEN!="1" never the GT911; touch must keep working
+#
+# id/vendor and id/product are the input device's own attributes: four lowercase
+# hex digits with no 0x prefix, so 0x1209/0x0001 is written 1209/0001.
+#
+# VERIFYING ON HARDWARE
+# List what libinput actually sees, and confirm no pointer is present:
+#   for d in /dev/input/event*; do udevadm info --query=property "$d" \
+#     | grep -qE '^ID_INPUT_MOUSE=1' && echo "$d is a pointer"; done
+
+SUBSYSTEM=="input", ATTRS{id/vendor}=="1209", ATTRS{id/product}=="0001", \
+  ENV{ID_INPUT_MOUSE}=="1", ENV{ID_INPUT_KEYBOARD}!="1", \
+  ENV{ID_INPUT_TOUCHSCREEN}!="1", ENV{LIBINPUT_IGNORE_DEVICE}="1"

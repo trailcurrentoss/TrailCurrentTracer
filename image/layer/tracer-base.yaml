@@ -1,0 +1,579 @@
+# The block below is DEB822, not free-form YAML comments. Every `# Key: value`
+# line is parsed, and an unindented `#` line that is not a Key: value is read
+# as a malformed continuation of the previous field — which fails the whole
+# layer to load with "Layer 'tracer-base' not found". Explanations go HERE,
+# above METABEGIN, never inside it.
+#
+# X-Env-Layer-Requires names upstream rpi-image-gen layers. `rpi-user-credentials`
+# was renamed `device-user-credentials` (layer/base/device-user-credentials.yaml);
+# the stale name fails with "Missing required dependency", which reads as though
+# this layer were broken rather than as upstream having moved. image/build.sh
+# pins the rpi-image-gen checkout so these names cannot shift underneath a build
+# without a deliberate bump.
+# METABEGIN
+# X-Env-Layer-Name: tracer-base
+# X-Env-Layer-Category: app
+# X-Env-Layer-Desc: Tracer field-debugger OS — kiosk GUI, daemon, boot chain
+# X-Env-Layer-Version: 0.1.0
+# X-Env-Layer-Requires: trixie-minbase,device-user-credentials,systemd-net-min
+# X-Env-Layer-Provides: tracer-base
+# METAEND
+---
+mmdebstrap:
+  packages:
+    # ── Kiosk display stack ──────────────────────────────────────────
+    # Cage is a Wayland kiosk compositor: one fullscreen app, no desktop,
+    # no window chrome, no cursor unless a pointer is attached. Chosen over
+    # X11+Openbox because it removes an entire display server from the boot
+    # path, which matters against the 12 s budget.
+    - cage
+    - chromium
+    - seatd
+    - fonts-dejavu-core
+
+    # ── tracerd ──────────────────────────────────────────────────────
+    - python3
+    - python3-venv
+    - python3-pip
+    - python3-systemd        # journald reader for the logs module
+
+    # ── Networking ───────────────────────────────────────────────────
+    - network-manager        # nmcli — the net module's entire backend
+    - wireless-regdb
+    - iw
+    - rfkill
+
+    # NetworkManager does NOT do 802.11 itself — it drives a supplicant over
+    # D-Bus, and its default is wpa_supplicant. Without this package NM brings
+    # wlan0 up as a wifi device and then loops forever on
+    #   "Couldn't initialize supplicant interface: Failed to D-Bus activate
+    #    wpa_supplicant service"
+    # every 13 s. The radio, firmware and driver are all fine; there is simply
+    # nothing to associate with, so the Wi-Fi screen scans and finds nothing
+    # and Rescan does nothing. This is the combination Raspberry Pi OS ships.
+    #
+    # NOTE: iwd is ALSO installed, because trixie-minbase lists it as a hard
+    # Requires and this config includes that suite. Two supplicants must not
+    # both drive the radio, so iwd.service is masked in a hook below. Do not
+    # "fix" that by deleting this package — removing iwd instead means forking
+    # the suite layer.
+    - wpasupplicant
+
+    # polkitd is only a *Recommends* of network-manager, and this build runs
+    # without recommends, so it does not arrive on its own. It has to be here
+    # explicitly or the two rules this layer installs into
+    # /etc/polkit-1/rules.d/ are inert files: with no daemon to read them,
+    # wifi.scan stays denied and timedatectl/localectl keep answering
+    # "Interactive authentication required". Nothing about that is visible at
+    # build time — the rules install fine — and on the unit it looks like a
+    # bug in the net and Date & Time screens.
+    - polkitd
+
+    # ── Headwaters access (docs/api.md §4.5) ─────────────────────────
+    # Tracer reads container state and pulls logs over SSH/SCP. This is the
+    # client side only; nothing is installed on Headwaters.
+    - openssh-client
+
+    # ── Diagnostics ──────────────────────────────────────────────────
+    - can-utils              # candump/cansend — Terminal use; tracerd uses SocketCAN directly
+    - gpsd
+    - gpsd-clients
+
+    # ── Locales ──────────────────────────────────────────────────────
+    # The upstream locale-base layer does NOT install this. It only seeds
+    # debconf (locales/locales_to_be_generated) so that the package, IF
+    # something else pulls it in, generates the right locale — and installs
+    # console-setup. Nothing else in this stack depends on `locales`, so
+    # without this line the image has no /etc/locale.gen, no locale-gen and
+    # no /usr/share/i18n/SUPPORTED.
+    #
+    # All three are load-bearing here: the build hook below uncomments and
+    # generates the pre-seeded set, and tracer-locale-gen validates the
+    # operator's choice against SUPPORTED at runtime. The build failure is
+    # obvious (sed and chroot both report a missing file), but had the hook
+    # been tolerant of it the image would have shipped with a locale picker
+    # that could never generate anything.
+    - locales
+
+    # NO chrony. The upstream layer stack resolves the `time-daemon` slot to
+    # systemd-timesyncd (see `time-daemon systemd-timesyncd` in the build's
+    # layer plan), and chrony declares `Conflicts: time-daemon`. Requesting
+    # both fails the whole apt transaction with "held broken packages", which
+    # names neither this file nor the layer that pulled the other one in.
+    #
+    # timesyncd is the right one to keep here anyway: it is already in the
+    # stack, it is an SNTP client rather than a full NTP daemon, and
+    # `timedatectl set-ntp` — which the Date & Time settings group drives —
+    # controls it directly. If chrony is ever genuinely needed (better holdover
+    # across long offline periods), it has to REPLACE the timesyncd layer in
+    # the config, not be added alongside it.
+
+    # NOTE: no openssh-SERVER by default. Tracer is a handheld tool, not a
+    # host to log into. Add it in a debug image variant if needed.
+
+  customize-hooks:
+    # ── Device tree overlay: GT911 touch ─────────────────────────────
+    # Our own overlay, not Waveshare's. Theirs declares the controller at
+    # both 0x14 and 0x5d; only 0x5d is populated, so 0x14 fails -EBUSY and
+    # logs two err lines every boot. See image/overlays/ and docs/hardware.md.
+    - |
+      fail() { echo "TRACER LAYER FAILED: $*" >&2; exit 1; }
+      # Everything this layer ships is reached through SRCROOT — the -S
+      # directory, ie image/. NOT $IGTOP, which is rpi-image-gen's own
+      # checkout under image/work/ and contains none of our files. Getting
+      # this wrong fails at the first install with a path nobody recognises.
+      # SRCROOT is only exported when -S is passed, so prove it is set once,
+      # here, rather than letting an empty prefix produce /overlays/... .
+      test -n "${SRCROOT:-}" || fail "SRCROOT unset: this layer must be built via image/build.sh, which passes -S"
+      install -m644 "$SRCROOT/overlays/tracer-gt911.dtbo" \
+        "$1/boot/firmware/overlays/tracer-gt911.dtbo"
+
+    # ── config.txt ───────────────────────────────────────────────────
+    # The panel is plain HDMI at native 640x480 and needs NO display
+    # overlay or hdmi_* keys (Pi 5 ignores the legacy ones under KMS).
+    # Verified on hardware — see docs/hardware.md.
+    - |
+      cat > "$1/boot/firmware/config.txt" <<'EOF'
+      # Tracer OS — see docs/boot.md for the rationale behind every line.
+      #
+      # THIS FILE REPLACES the upstream template wholesale
+      # (rpi-image-gen templates/rpi/boot-firmware/config.txt), so anything
+      # load-bearing there has to be repeated HERE. Diff the two before
+      # editing; a line dropped by omission is invisible in review.
+      #
+      # auto_initramfs is the one that bites. The boot partition carries
+      # initramfs_2712, but the firmware only loads it if this is set, and
+      # cmdline.txt says root=/dev/disk/by-slot/system — a symlink created by
+      # 99-rpi-05-image.rules, i.e. by udev, i.e. only from inside the
+      # initramfs. Without this line there is no initramfs, so nothing ever
+      # creates that symlink, root cannot be mounted and the kernel panics.
+      # The splash is in the initramfs too, and configure-splash strips
+      # console=tty1 from cmdline.txt so the logo is not scribbled over — so
+      # the panic prints to serial only. On the panel it looks like the board
+      # shows the firmware's boot messages and then dies to a black screen,
+      # with no splash and nothing to read.
+      auto_initramfs=1
+      disable_splash=1
+      boot_delay=0
+      dtparam=audio=off
+      dtparam=i2c_arm=on
+      dtoverlay=vc4-kms-v3d
+      max_framebuffers=2
+      disable_fw_kms_setup=1
+      disable_overscan=1
+      arm_64bit=1
+      arm_boost=1
+
+      # GT911 capacitive touch (i2c1 @ 0x5d, IRQ GPIO4)
+      dtoverlay=tracer-gt911
+
+      # USB-C host mode — required by the carrier board
+      dtoverlay=dwc2,dr_mode=host
+
+      # Active cooler. The base DTB ships cooling_fan with status="disabled"
+      # and relies on the FIRMWARE enabling it after detecting a fan on the
+      # 4-pin JST-SH header at boot. On this chassis that detection does not
+      # fire: measured on hardware with the official Active Cooler correctly
+      # fitted, /proc/device-tree/cooling_fan/status stayed "disabled", no
+      # /sys/class/thermal/cooling_device appeared, and pwm_fan never loaded.
+      #
+      # The failure is quiet and easy to misread. The fan still spins briefly
+      # at power-on — 5V reaches it before anything drives PWM — so it sounds
+      # detected. It is not: with no cooling device bound, thermal_zone0's
+      # trip points (50/60/67.5/75 C) have nothing to act on and the fan never
+      # runs again. The board idled at 66-70 C with a cooler fitted.
+      #
+      # This unit always ships with a fan, so enable it explicitly rather than
+      # depending on boot-time detection. Trip points are left at the stock
+      # values: this is about binding a cooling device at all, not tuning a
+      # curve, and an invented curve for this enclosure would be a guess.
+      dtparam=cooling_fan=on
+
+      # Fan curve, written out explicitly. These are the firmware's own
+      # defaults (confirmed against /boot/firmware/overlays/README and read
+      # back live from /sys/class/thermal/thermal_zone0/trip_point_*), so this
+      # changes no behaviour today. It is here so the curve is reviewable in
+      # one place and a future change shows up as a diff, rather than being an
+      # invisible inherited default nobody can see.
+      #
+      # Temperatures are millicelsius; speed is PWM 0-255. Hysteresis is how
+      # far the temperature must FALL below a threshold before stepping back
+      # down — without it the fan hunts either side of the trip point.
+      #
+      # NOTE: these do nothing on their own. They configure a thermal zone's
+      # trip points; dtparam=cooling_fan=on above is what binds a cooling
+      # device for them to drive. Setting thresholds while cooling_fan is
+      # disabled is the trap this whole section exists to document.
+      dtparam=fan_temp0=50000,fan_temp0_hyst=5000,fan_temp0_speed=75
+      dtparam=fan_temp1=60000,fan_temp1_hyst=5000,fan_temp1_speed=125
+      dtparam=fan_temp2=67500,fan_temp2_hyst=5000,fan_temp2_speed=175
+      dtparam=fan_temp3=75000,fan_temp3_hyst=5000,fan_temp3_speed=250
+
+      [pi5]
+      dtoverlay=nospi10
+      [all]
+      EOF
+
+    # ── Let the operator scan and join WiFi ──────────────────────────
+    # NetworkManager gates wifi.scan behind polkit; without this the network
+    # list silently degrades to a stale cache showing only the connected
+    # SSID. See the rule file for the full rationale.
+    - |
+      install -d -m755 "$1/etc/polkit-1/rules.d"
+      install -m644 "$SRCROOT/layer/files/49-tracer-networkmanager.rules" \
+        "$1/etc/polkit-1/rules.d/49-tracer-networkmanager.rules"
+
+    # ── No mouse cursor on the panel ─────────────────────────────────
+    # The RP2040 presents a mouse HID collection alongside the keyboard. It
+    # reports nothing — there is no pointing device on the unit — but a
+    # compositor that sees a pointer draws a cursor, and CSS cannot reach a
+    # cursor the client was never handed. See the rule file for why the UI's
+    # existing `cursor: none` is correct and still insufficient.
+    - |
+      fail() { echo "TRACER LAYER FAILED: $*" >&2; exit 1; }
+      install -d -m755 "$1/etc/udev/rules.d"
+      install -m644 "$SRCROOT/layer/files/70-tracer-no-pointer.rules" \
+        "$1/etc/udev/rules.d/70-tracer-no-pointer.rules"
+      # The rule must never be able to match the keyboard: every button on the
+      # unit arrives through the same physical device, so a bad match here
+      # leaves an operator with a device they cannot navigate at all.
+      grep -q 'ENV{ID_INPUT_KEYBOARD}!="1"' "$1/etc/udev/rules.d/70-tracer-no-pointer.rules" \
+        || fail "pointer rule lacks the keyboard guard: it could disable every button on the unit"
+      grep -q 'ENV{ID_INPUT_TOUCHSCREEN}!="1"' "$1/etc/udev/rules.d/70-tracer-no-pointer.rules" \
+        || fail "pointer rule lacks the touchscreen guard: it could disable touch"
+
+    # ── One supplicant, one manager of wlan0 ─────────────────────────
+    # Three daemons ship enabled and all three want the radio: NetworkManager
+    # (which the net module drives through nmcli), iwd (pulled in as a hard
+    # Requires of the trixie-minbase suite), and systemd-networkd (via
+    # 02-wlan0.network, generated by the rpi family-base layer). That is why
+    # wifi did nothing on the first booting image.
+    #
+    # The arrangement below is the one Raspberry Pi OS uses: NetworkManager
+    # owns wifi and talks to wpa_supplicant; networkd keeps eth0 only.
+    - |
+      fail() { echo "TRACER LAYER FAILED: $*" >&2; exit 1; }
+      # Mask, not just disable: masking survives a later `systemctl enable`
+      # from any other layer's hook, and iwd's own layer enables it.
+      chroot "$1" systemctl mask iwd.service \
+        || fail "could not mask iwd.service: two supplicants would fight over wlan0"
+      # networkd generates one .network per interface and DHCPs on it. It does
+      # not do 802.11 association at all, so leaving it to claim wlan0 only
+      # takes the link away from NetworkManager. eth0 stays with networkd.
+      rm -f "$1/etc/systemd/network/02-wlan0.network"
+      # Belt and braces: if a future layer regenerates that file, tell NM it
+      # owns wlan0 regardless.
+      install -d -m755 "$1/etc/NetworkManager/conf.d"
+      printf '# Tracer: wifi is NetworkManager territory. See tracer-base.yaml.\n[device]\nwifi.backend=wpa_supplicant\n' \
+        > "$1/etc/NetworkManager/conf.d/10-tracer-wifi.conf"
+      chmod 644 "$1/etc/NetworkManager/conf.d/10-tracer-wifi.conf"
+
+    # ── Power button: ask before shutting down ───────────────────────
+    # logind's default HandlePowerKey=poweroff powers the unit off on a single
+    # short press with no confirmation, which is wrong for a handheld tool that
+    # gets carried in a bag. tracerd claims the key instead and routes it to a
+    # GUI confirmation; power.py already refuses to act without confirm=true.
+    #
+    # Handing the key to a user-space daemon means the daemon must be allowed
+    # to actually power off, hence the polkit rule alongside this.
+    - |
+      fail() { echo "TRACER LAYER FAILED: $*" >&2; exit 1; }
+      install -d -m755 "$1/etc/systemd/logind.conf.d"
+      printf '# Tracer: the GUI confirms shutdown. See image/layer/tracer-base.yaml.\n[Login]\nHandlePowerKey=ignore\nHandlePowerKeyLongPress=poweroff\n' \
+        > "$1/etc/systemd/logind.conf.d/10-tracer-powerkey.conf"
+      chmod 644 "$1/etc/systemd/logind.conf.d/10-tracer-powerkey.conf"
+      test -n "$IGconf_device_user1" || fail "device_user1 is unset: the power-off polkit rule would match no one"
+      sed "s/@TRACER_USER@/$IGconf_device_user1/g" \
+        "$SRCROOT/layer/files/51-tracer-power.rules" \
+        > "$1/etc/polkit-1/rules.d/51-tracer-power.rules"
+      chmod 644 "$1/etc/polkit-1/rules.d/51-tracer-power.rules"
+      ! grep -q '@TRACER_USER@' "$1/etc/polkit-1/rules.d/51-tracer-power.rules" \
+        || fail "power polkit rule still contains @TRACER_USER@"
+
+    # ── OS-level settings: clock, time zone, locale, WiFi region ─────
+    # The kiosk has no shell, so Settings is the only route to these. Without
+    # the grants below the rows render and then do nothing: timedatectl and
+    # localectl answer "Interactive authentication required" on stderr and
+    # the failure is invisible in the GUI. A wrong clock also breaks TLS to
+    # the broker, so this is a diagnostic prerequisite, not a preference.
+    - |
+      # Each YAML item is its own `sh -c`, so fail() has to be redefined in
+      # every block that uses it — a definition in a later hook is not in
+      # scope here, and the call would die as "fail: not found" instead of
+      # printing the reason.
+      fail() { echo "TRACER LAYER FAILED: $*" >&2; exit 1; }
+      # Template: the rule matches on subject.user, so an unsubstituted or
+      # mismatched name makes it return NOT_HANDLED for everything and the
+      # clock/locale rows fail silently.
+      test -n "$IGconf_device_user1" || fail "device_user1 is unset: the timedate polkit rule would match no one"
+      sed "s/@TRACER_USER@/$IGconf_device_user1/g" \
+        "$SRCROOT/layer/files/50-tracer-timedate.rules" \
+        > "$1/etc/polkit-1/rules.d/50-tracer-timedate.rules"
+      chmod 644 "$1/etc/polkit-1/rules.d/50-tracer-timedate.rules"
+      ! grep -q '@TRACER_USER@' "$1/etc/polkit-1/rules.d/50-tracer-timedate.rules" \
+        || fail "timedate polkit rule still contains @TRACER_USER@"
+      # locale-gen and raspi-config have no D-Bus interface, so polkit cannot
+      # cover them; they are the only reason a sudoers file exists at all.
+      install -d -m755 "$1/etc/sudoers.d"
+      # The drop-in is a TEMPLATE: @TRACER_USER@ is the device account chosen
+      # at build time, never a name baked into the repo. Substitute here, then
+      # validate the RESULT — the template itself cannot pass visudo.
+      test -n "$IGconf_device_user1" || fail "device_user1 is unset: cannot grant sudo to an unnamed account"
+      sed "s/@TRACER_USER@/$IGconf_device_user1/g" \
+        "$SRCROOT/layer/files/010_tracer-system" > "$1/etc/sudoers.d/010_tracer-system"
+      chown root:root "$1/etc/sudoers.d/010_tracer-system"
+      chmod 440 "$1/etc/sudoers.d/010_tracer-system"
+      # An unsubstituted placeholder would silently grant nothing.
+      ! grep -q '@TRACER_USER@' "$1/etc/sudoers.d/010_tracer-system" \
+        || fail "sudoers drop-in still contains @TRACER_USER@: locale and WiFi region would be unsettable"
+      # A malformed drop-in locks sudo out of the whole image. Fail the BUILD
+      # rather than ship that.
+      visudo -c -f "$1/etc/sudoers.d/010_tracer-system" >/dev/null \
+        || fail "sudoers drop-in 010_tracer-system is malformed"
+      # Runtime locale selection. Debian's locale-gen IGNORES arguments — it
+      # only ever regenerates what is uncommented in /etc/locale.gen — so a
+      # bare sudo grant on it cannot add a locale that is not already listed.
+      # This wrapper is what makes the picker work for all ~500 of them: it
+      # validates the name against SUPPORTED, uncomments or appends the line,
+      # regenerates, and fails loudly if the locale still does not exist.
+      install -m755 "$SRCROOT/layer/files/tracer-locale-gen" \
+        "$1/usr/local/sbin/tracer-locale-gen"
+      # Pre-generate the common locales so the usual choices are instant, and
+      # so a unit with no network can still be switched between them.
+      #
+      # Uncommenting is NOT generating. locale-gen has to actually run, or
+      # `locale -a` never gains the entry, localectl accepts the LANG anyway
+      # and the system falls back to C at the next boot with nothing shown
+      # anywhere. That is the exact trap this whole path exists to avoid.
+      for L in en_US.UTF-8 en_GB.UTF-8 de_DE.UTF-8 fr_FR.UTF-8 es_ES.UTF-8 \
+               it_IT.UTF-8 pt_BR.UTF-8 nl_NL.UTF-8 sv_SE.UTF-8 ja_JP.UTF-8; do
+        sed -i "s/^# *\\(${L} UTF-8\\)/\\1/" "$1/etc/locale.gen"
+      done
+      chroot "$1" locale-gen
+
+    # ── Magic SysRq off ──────────────────────────────────────────────
+    # The Select button is KEY_SYSRQ and the kernel binds a sysrq handler
+    # to that keyboard. Stock is kernel.sysrq=438, which has reboot and
+    # poweroff enabled — an Alt+Select chord would hard-reboot without
+    # syncing, on the button that opens the status sheet.
+    - |
+      printf 'kernel.sysrq = 0\n' > "$1/etc/sysctl.d/10-tracer.conf"
+
+    # ── Trim units ───────────────────────────────────────────────────
+    # Each disable is justified one-per-line in docs/boot.md. Keep the two
+    # in sync — a future maintainer needs to know why before re-enabling.
+    - |
+      chroot "$1" systemctl disable getty@tty1.service            || true
+      chroot "$1" systemctl disable ModemManager.service          || true
+      chroot "$1" systemctl disable avahi-daemon.service          || true
+      chroot "$1" systemctl disable avahi-daemon.socket           || true
+      chroot "$1" systemctl disable unattended-upgrades.service   || true
+      # systemd-timesyncd is deliberately NOT disabled. It used to be, because
+      # chrony was the time daemon; chrony is gone (see the packages section),
+      # so disabling this would leave the unit with no clock sync at all. A
+      # wrong clock is not cosmetic here — it breaks TLS to the Headwaters
+      # broker with "certificate is not yet valid" and makes captures
+      # impossible to line up against Headwaters' own logs.
+      chroot "$1" systemctl disable triggerhappy.service          || true
+      chroot "$1" systemctl disable bluetooth.service             || true
+      chroot "$1" systemctl disable apt-daily.timer               || true
+      chroot "$1" systemctl disable apt-daily-upgrade.timer       || true
+      chroot "$1" systemctl enable  seatd.service                 || true
+
+    # ── Writable state directory ─────────────────────────────────────
+    # The only writable location once the rootfs goes read-only.
+    - |
+      install -d -m755 "$1/var/lib/tracer"
+      install -d -m700 "$1/var/lib/tracer/ssh"
+      install -d -m755 "$1/var/lib/tracer/logs"
+      install -d -m755 "$1/var/lib/tracer/captures"
+
+    # ── Default keymap ───────────────────────────────────────────────
+    # Captured from hardware; seeds settings.json on first boot.
+    - |
+      install -m644 "$SRCROOT/../tracerd/keymap.default.json" \
+        "$1/var/lib/tracer/keymap.default.json"
+
+    # ── Application install ──────────────────────────────────────────
+    # tracerd (stdlib only — no pip, no venv, nothing to fetch at build time)
+    # and the GUI (pure JS ES modules — no build step, no node_modules).
+    # Both are copied verbatim from the repo, so what is tested with
+    # `make dev` on the board is byte-for-byte what ships.
+    - |
+      install -d -m755 "$1/opt/tracer"
+      cp -a "$SRCROOT/../tracerd"    "$1/opt/tracer/tracerd"
+      cp -a "$SRCROOT/../tracer-ui"  "$1/opt/tracer/tracer-ui"
+      # Build/dev artefacts must never reach the image.
+      rm -rf "$1/opt/tracer/tracer-ui/node_modules" \
+             "$1/opt/tracer/tracer-ui/package-lock.json" \
+             "$1/opt/tracer/tracerd/tests"
+      find "$1/opt/tracer" -name '__pycache__' -type d -prune -exec rm -rf {} + || true
+      find "$1/opt/tracer" -name '*.pyc' -delete || true
+      chown -R 1000:1000 "$1/opt/tracer"
+
+    # Fail the build if the GUI's generated icon subset is missing. It is
+    # produced by `npm run icons` and committed; without it every icon on
+    # every screen renders blank, and the image would look fine until boot.
+    - |
+      test -s "$1/opt/tracer/tracer-ui/src/icons.js" || {
+        echo "ERROR: tracer-ui/src/icons.js missing or empty." >&2
+        echo "       Run 'make icons' in the repo before building." >&2
+        exit 1
+      }
+
+    # ── systemd units ────────────────────────────────────────────────
+    - |
+      fail() { echo "TRACER LAYER FAILED: $*" >&2; exit 1; }
+      # Both units are TEMPLATES — @TRACER_USER@ is the device account chosen
+      # at build time (image/build.sh), not a name baked into the repo. A unit
+      # naming a user that does not exist fails at boot with a bare
+      # "Failed to determine user credentials", which says nothing about why.
+      test -n "$IGconf_device_user1" || fail "device_user1 is unset: units would name a nonexistent user"
+      for u in tracerd tracer-ui; do
+        sed "s/@TRACER_USER@/$IGconf_device_user1/g" \
+          "$SRCROOT/systemd/$u.service" > "$1/etc/systemd/system/$u.service"
+        chmod 644 "$1/etc/systemd/system/$u.service"
+        ! grep -q '@TRACER_USER@' "$1/etc/systemd/system/$u.service" \
+          || fail "$u.service still contains @TRACER_USER@"
+        grep -q "^User=$IGconf_device_user1$" "$1/etc/systemd/system/$u.service" \
+          || fail "$u.service does not run as the device account"
+      done
+      chroot "$1" systemctl enable tracerd.service
+      chroot "$1" systemctl enable tracer-ui.service
+
+    # ── Bake-time verification ───────────────────────────────────────
+    # Everything below was found the hard way on real hardware. Each check
+    # exists because getting it wrong produces a device that boots and looks
+    # healthy while something is silently broken. See docs/build-manifest.md.
+    - |
+      fail() { echo "IMAGE VERIFY FAILED: $*" >&2; exit 1; }
+      R="$1"
+      # The GT911 overlay, and config.txt pointing at ours not Waveshare's.
+      test -f "$R/boot/firmware/overlays/tracer-gt911.dtbo" || fail "gt911 overlay missing"
+      grep -q '^dtoverlay=tracer-gt911' "$R/boot/firmware/config.txt" || fail "config.txt does not use tracer-gt911"
+      grep -q '^dtparam=i2c_arm=on'     "$R/boot/firmware/config.txt" || fail "i2c_arm off: touch will not probe"
+      grep -q '^dtoverlay=dwc2,dr_mode=host' "$R/boot/firmware/config.txt" || fail "dwc2 host mode missing: no keyboard"
+      # The unit does not boot at all without this: root= is a udev symlink
+      # that only exists inside the initramfs, and the initramfs is only
+      # loaded if auto_initramfs is set. Cheap to assert, and the symptom it
+      # prevents (firmware messages then a black screen, nothing on serial
+      # unless you have a cable on it) costs a card reflash to diagnose.
+      grep -q '^auto_initramfs=1' "$R/boot/firmware/config.txt" || fail "auto_initramfs not set: initramfs never loads, root= cannot resolve, board will not boot"
+      # Do NOT add `test -f "$R/boot/firmware/initramfs_2712"` here. It is
+      # generated by initramfs-tools' deferred dpkg trigger at the END of the
+      # mmdebstrap run, long after customize-hooks, so the file legitimately
+      # does not exist yet at this point and the assertion fails every build.
+      # If it is ever worth checking, it belongs in a postbuild phase hook
+      # (tracer-base.d/hooks/postbuild.sh), not here.
+      # Without this the fan spins at power-on and then never again, because no
+      # cooling device is bound to the thermal zone's trip points. It sounds
+      # like it is working, and the board sits 20 C hotter than it should.
+      grep -q '^dtparam=cooling_fan=on' "$R/boot/firmware/config.txt" || fail "cooling_fan not enabled: the active cooler would never be driven"
+      # Select is KEY_SYSRQ; magic sysrq must be off or Alt+Select hard-reboots.
+      grep -q 'kernel.sysrq *= *0' "$R/etc/sysctl.d/10-tracer.conf" || fail "kernel.sysrq not disabled"
+      # A rule file with no daemon to read it is the same as no rule, and
+      # `test -f` cannot tell the two apart — which is how an image shipped
+      # with both rules present and neither in effect. polkitd is only a
+      # Recommends of network-manager, so it is one dropped recommend away
+      # from vanishing again. Check the package, not just the files.
+      chroot "$R" dpkg-query -W -f='${Status}' polkitd 2>/dev/null \
+        | grep -q '^install ok installed$' \
+        || fail "polkitd not installed: the polkit rules below are inert, so WiFi scan, clock and locale would all silently do nothing"
+      # Without the polkit rule the WiFi scan silently returns a stale cache.
+      test -f "$R/etc/polkit-1/rules.d/49-tracer-networkmanager.rules" || fail "NetworkManager polkit rule missing"
+      # WiFi needs a supplicant, one manager, and no second claimant. Shipped
+      # once with none of the three right: NM looped forever on "Failed to
+      # D-Bus activate wpa_supplicant service" and the Wi-Fi screen was inert.
+      chroot "$R" dpkg-query -W -f='${Status}' wpasupplicant 2>/dev/null \
+        | grep -q '^install ok installed$' \
+        || fail "wpasupplicant not installed: NetworkManager has no 802.11 backend, so scanning and joining cannot work at all"
+      test -L "$R/etc/systemd/system/iwd.service" \
+        || fail "iwd.service not masked: a second supplicant would contend with wpa_supplicant for wlan0"
+      ! test -e "$R/etc/systemd/network/02-wlan0.network" \
+        || fail "02-wlan0.network still present: systemd-networkd would claim wlan0 away from NetworkManager"
+      # A cursor on a touchscreen kiosk is a defect. The UI's CSS cannot fix it
+      # alone, so the pointer is removed at the udev layer; assert the rule and
+      # its two guards survived, since a bad match here kills every button.
+      test -f "$R/etc/udev/rules.d/70-tracer-no-pointer.rules" || fail "pointer-suppression udev rule missing: a mouse cursor would sit on the panel"
+      grep -q 'ENV{ID_INPUT_KEYBOARD}!="1"' "$R/etc/udev/rules.d/70-tracer-no-pointer.rules" \
+        || fail "pointer rule lacks the keyboard guard: every button on the unit could be disabled"
+      # Power off must be authorized, or the confirm dialog resolves to nothing.
+      test -f "$R/etc/polkit-1/rules.d/51-tracer-power.rules" || fail "power polkit rule missing: the GUI shutdown would be denied"
+      grep -q "subject.user !== \"$IGconf_device_user1\"" "$R/etc/polkit-1/rules.d/51-tracer-power.rules" \
+        || fail "power polkit rule does not match the device account"
+      grep -q '^HandlePowerKey=ignore' "$R/etc/systemd/logind.conf.d/10-tracer-powerkey.conf" \
+        || fail "logind still owns the power key: a bumped button would power the unit off with no confirmation"
+      # OS settings are unreachable on a kiosk without these. Each one failing
+      # is silent at runtime — the row renders and simply never takes effect.
+      test -f "$R/etc/polkit-1/rules.d/50-tracer-timedate.rules" || fail "timedate/locale polkit rule missing: clock and locale unsettable"
+      test -f "$R/etc/sudoers.d/010_tracer-system" || fail "sudoers drop-in missing: locale-gen and WiFi region unsettable"
+      visudo -c -f "$R/etc/sudoers.d/010_tracer-system" >/dev/null || fail "sudoers drop-in malformed: sudo would be locked out"
+      test "$(stat -c %a "$R/etc/sudoers.d/010_tracer-system")" = "440" || fail "sudoers drop-in has wrong mode (must be 0440)"
+      # No account name may be baked into the shipped image. An unsubstituted
+      # placeholder grants nothing and names no one; both fail silently at
+      # runtime, which is the failure mode this whole verify block exists for.
+      ! grep -rq '@TRACER_USER@' "$R/etc/sudoers.d/010_tracer-system" \
+        "$R/etc/systemd/system/tracerd.service" \
+        "$R/etc/systemd/system/tracer-ui.service" \
+        "$R/etc/polkit-1/rules.d/50-tracer-timedate.rules" \
+        || fail "@TRACER_USER@ left unsubstituted: the units, sudo grant and polkit rule name no real account"
+      # The polkit rule matches on subject.user; a mismatch is silent.
+      grep -q "subject.user !== \"$IGconf_device_user1\"" "$R/etc/polkit-1/rules.d/50-tracer-timedate.rules" \
+        || fail "timedate polkit rule does not match the device account: clock and locale would silently do nothing"
+      # The units must run as the account this image actually created.
+      grep -q "^User=$IGconf_device_user1$" "$R/etc/systemd/system/tracerd.service" \
+        || fail "tracerd.service does not run as the device account"
+      chroot "$R" id -u "$IGconf_device_user1" >/dev/null 2>&1 \
+        || fail "device account '$IGconf_device_user1' does not exist in the image"
+      # Every supplementary group must actually exist. systemd treats an
+      # unknown name as a fatal start error, so the unit never runs — and with
+      # Restart=always that is an invisible crash-loop, not a message. This
+      # shipped once as "seat", a group Debian does not have (seatd runs
+      # `seatd -g video`), and cost a full build-and-flash cycle to find.
+      for u in tracerd tracer-ui; do
+        # Without this, a missing unit file makes the loop below iterate over
+        # nothing and report success — a check that cannot fail is worse than
+        # no check, because it reads as coverage.
+        test -f "$R/etc/systemd/system/$u.service" || fail "$u.service missing"
+        grep -q '^SupplementaryGroups=' "$R/etc/systemd/system/$u.service" \
+          || fail "$u.service has no SupplementaryGroups line: the group check below would be vacuous"
+        for g in $(sed -n 's/^SupplementaryGroups=//p' "$R/etc/systemd/system/$u.service"); do
+          grep -q "^$g:" "$R/etc/group" \
+            || fail "$u.service names supplementary group '$g', which does not exist in this image"
+        done
+      done
+      # XDG_RUNTIME_DIR must be a directory the unit itself creates. Anything
+      # under /run/user/ depends on a logind session or a lingering user, and
+      # this image has neither, so cage would fail on an invalid runtime dir.
+      grep -q '^RuntimeDirectory=tracer-ui$' "$R/etc/systemd/system/tracer-ui.service" \
+        || fail "tracer-ui.service has no RuntimeDirectory: XDG_RUNTIME_DIR would not exist at boot"
+      ! grep -q '^Environment=XDG_RUNTIME_DIR=/run/user/' "$R/etc/systemd/system/tracer-ui.service" \
+        || fail "tracer-ui.service points XDG_RUNTIME_DIR at /run/user/: nothing creates that path on this image"
+      # Uncommented in locale.gen is NOT the same as generated, and only the
+      # second one makes a locale selectable. Checking the config line was
+      # what let an image ship where every locale choice failed.
+      grep -q '^en_US.UTF-8 UTF-8' "$R/etc/locale.gen" || fail "en_US.UTF-8 not enabled in locale.gen"
+      chroot "$R" locale -a 2>/dev/null | grep -qiE '^en_US\.utf-?8$' \
+        || fail "locales not generated: locale-gen did not run, so every picker choice would set an ungenerated LANG"
+      # Debian's locale-gen ignores arguments, so without this wrapper only
+      # the pre-generated locales above can ever be selected.
+      test -x "$R/usr/local/sbin/tracer-locale-gen" || fail "tracer-locale-gen missing: only pre-generated locales would be selectable"
+      # The hardware-captured keymap. Without it no button does anything.
+      test -s "$R/var/lib/tracer/keymap.default.json" || fail "keymap missing"
+      # The app itself.
+      test -f "$R/opt/tracer/tracerd/tracerd/__main__.py" || fail "tracerd missing"
+      test -f "$R/opt/tracer/tracer-ui/index.html"        || fail "tracer-ui missing"
+      test -s "$R/opt/tracer/tracer-ui/src/icons.js"      || fail "icons.js missing"
+      # _EDIT_KEYS was referenced but undefined once, and text entry died
+      # silently. Cheap to assert, expensive to rediscover.
+      grep -q '_EDIT_KEYS *= *{' "$R/opt/tracer/tracerd/tracerd/modules/inputmod.py" || fail "_EDIT_KEYS missing: text entry will be dead"
+      # MQTT: stdlib client + module + Inspector screen.
+      test -f "$R/opt/tracer/tracerd/tracerd/mqttclient.py"      || fail "mqtt client missing"
+      test -f "$R/opt/tracer/tracerd/tracerd/modules/mqtt.py"    || fail "mqtt module missing"
+      test -f "$R/opt/tracer/tracer-ui/src/apps/mqtt.js"         || fail "MQTT Inspector screen missing"
+      # Per-topic rate must be windowed. Instantaneous 1/dt reported
+      # can/inbound at 8904/s against a real 142 msg/s, because subscribing
+      # to '#' delivers every retained message with dt near zero.
+      grep -q 'def sample' "$R/opt/tracer/tracerd/tracerd/modules/mqtt.py" || fail "mqtt per-topic rate not windowed"
+      test -L "$R/etc/systemd/system/multi-user.target.wants/tracerd.service" || fail "tracerd.service not enabled"
+      echo "image verify: all checks passed"

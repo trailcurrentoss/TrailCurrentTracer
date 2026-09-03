@@ -1,0 +1,151 @@
+/* TrailCurrent design system tokens — dark and light.
+ *
+ * Dark values are lifted verbatim from the design mock
+ * (design/PocketTerm35 OS v2.dc.html). Do not invent them.
+ *
+ * THEMING RULE: never hardcode a colour in a component. Every surface, text
+ * and status colour goes through a var() here, or the light theme silently
+ * breaks one screen at a time.
+ */
+
+:root {
+  /* ── Brand (identical in both themes) ─────────────────────────────
+   * These are the TrailCurrent brand greens and must not shift with the
+   * theme — a brand colour that changes is no longer a brand colour. */
+  --tc-primary:       #52A441;
+  --tc-primary-light: #7BC96A;
+  --tc-primary-dark:  #3D7B31;
+  --tc-primary-hover: #469038;
+
+  --r-card:  12px;
+  --r-btn:   8px;
+  --r-badge: 16px;
+  --r-full:  9999px;
+
+  --t-fast: 0.2s ease;
+  --t-slow: 0.3s ease;
+
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+          Ubuntu, "Helvetica Neue", Arial, sans-serif;
+  --mono: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+
+/* ── Dark (default) ──────────────────────────────────────────────── */
+:root, :root[data-theme="dark"] {
+  --bg-0: #000000;
+  --bg-1: #1a1a1a;
+  --bg-2: #252525;
+  --bg-3: #2a2a2a;
+  --border: #333333;
+  --chrome-bg: rgba(0, 0, 0, 0.9);
+
+  --fg:      #ffffff;
+  --fg-dim:  #aaaaaa;
+  --fg-mute: #666666;
+  --fg-off:  #4a4a4a;
+
+  /* Status colours are tuned for an emissive dark panel. */
+  --tc-success: #74FE00;
+  --tc-info:    #48E6FE;
+  --tc-warning: #FFC107;
+  --tc-danger:  #FF5453;
+
+  --focus-border: var(--tc-primary-light);
+  --glow:        0 0 20px rgba(82, 164, 65, 0.5);
+  --glow-danger: 0 0 20px rgba(255, 84, 83, 0.5);
+}
+
+/* ── Light ───────────────────────────────────────────────────────────
+ * NOT an inversion. The dark theme's status colours are near-neon
+ * (#74FE00 success, #48E6FE info) because they sit on black; on white they
+ * are close to illegible. Each one is re-picked for contrast on a light
+ * surface rather than reused, which is why this block sets them again.
+ *
+ * The glow also drops to a soft ring: a 20px bloom reads as a glow on black
+ * and as a smudge on white. */
+:root[data-theme="light"] {
+  --bg-0: #ffffff;
+  --bg-1: #f4f5f3;
+  --bg-2: #e7eae5;
+  --bg-3: #dcdfd9;
+  --border: #cfd3cb;
+  --chrome-bg: rgba(255, 255, 255, 0.92);
+
+  --fg:      #14170f;
+  --fg-dim:  #4c5147;
+  --fg-mute: #6f756a;
+  --fg-off:  #a2a89c;
+
+  --tc-success: #2E7D32;
+  --tc-info:    #0277A8;
+  --tc-warning: #9A6700;
+  --tc-danger:  #C62828;
+
+  --focus-border: var(--tc-primary-dark);
+  --glow:        0 0 0 3px rgba(82, 164, 65, 0.28);
+  --glow-danger: 0 0 0 3px rgba(198, 40, 40, 0.28);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 640px;
+  height: 480px;
+  overflow: hidden;          /* no scrollbars, ever — scrolling is cursor-driven */
+  background: var(--bg-0);
+  color: var(--fg);
+  font-family: var(--font);
+  font-size: 13px;
+  user-select: none;
+  -webkit-user-select: none;
+  /* Unconditional on the device — the panel is a touchscreen with no mouse.
+   * Only body.dev-frame (?dev, driven by mouse over a tunnel) restores it.
+   * Do NOT reintroduce a "reveal on mousemove" heuristic: Chromium fires a
+   * synthetic mousemove for every touch, so it reveals the cursor on the
+   * first tap and never hides it again. */
+  cursor: none;
+  transition: background var(--t-slow), color var(--t-slow);
+}
+
+/* Every interactive element inherits it too — a child with its own
+ * cursor:pointer would otherwise put the arrow back on the panel. */
+body *, body *::before, body *::after { cursor: inherit; }
+
+#app {
+  position: relative;
+  width: 640px;
+  height: 480px;
+  overflow: hidden;
+  background: var(--bg-0);
+}
+
+/* Text input must accept the physical keyboard — there is no on-screen
+ * keyboard anywhere in Tracer. */
+input, textarea {
+  user-select: text;
+  -webkit-user-select: text;
+  font-family: var(--mono);
+}
+
+/* Dev-only: match the panel exactly on a laptop. */
+body.dev-frame {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0f1210;
+  cursor: default;
+}
+body.dev-frame #app {
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+@keyframes tcspin  { to { transform: rotate(360deg); } }
+@keyframes tcpulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+@keyframes tcring  { 0% { transform: scale(1); opacity: .55; }
+                     100% { transform: scale(2.8); opacity: 0; } }

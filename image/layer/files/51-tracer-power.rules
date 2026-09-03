@@ -1,0 +1,54 @@
+/* Let Tracer power the unit off and reboot it from the GUI.
+ *
+ * WHY THIS EXISTS
+ * ---------------
+ * The device boots straight into a full-screen kiosk. There is no desktop,
+ * no terminal emulator and no login prompt, so the GUI is the only way an
+ * operator can shut the unit down cleanly. The alternative is pulling power,
+ * which risks the filesystem and loses whatever capture is in flight.
+ *
+ * logind's default is HandlePowerKey=poweroff: a single short press powers
+ * the unit off immediately, with no confirmation. On a handheld tool that
+ * lives in a bag that is too easy to trigger by accident, so the image sets
+ * HandlePowerKey=ignore and tracerd claims the key instead, routing it to a
+ * confirmation dialog. power.py already refuses to act without confirm=true.
+ *
+ * Moving the decision into user space means the daemon must actually be
+ * permitted to act on it. Without this rule tracerd runs
+ *
+ *     systemctl poweroff
+ *
+ * and gets "Interactive authentication required" on stderr. The dialog would
+ * appear, the operator would confirm, and nothing would happen — the same
+ * shape of silent failure as the WiFi scan cache in
+ * 49-tracer-networkmanager.rules and the clock in 50-tracer-timedate.rules.
+ *
+ * SCOPE
+ * Narrow by construction: power-off and reboot only, granted only to the
+ * account the daemon runs as. Deliberately NOT granted:
+ *
+ *   - the *-multiple-sessions variants. This image has no other sessions, so
+ *     needing them would mean something unexpected is running and the prompt
+ *     is the correct outcome.
+ *   - suspend and hibernate. The panel and the RP2040 keyboard do not resume
+ *     reliably, and a unit that looks off but is drawing current is worse
+ *     than one that is off.
+ *   - *-ignore-inhibit. If something has taken an inhibitor lock — a capture
+ *     being flushed, an image being written — it should win over a button
+ *     press. Long-pressing the power key still forces a poweroff through
+ *     logind, which is the intended escape hatch.
+ */
+
+polkit.addRule(function (action, subject) {
+    if (subject.user !== "@TRACER_USER@") {
+        return polkit.Result.NOT_HANDLED;
+    }
+
+    switch (action.id) {
+    case "org.freedesktop.login1.power-off":
+    case "org.freedesktop.login1.reboot":
+        return polkit.Result.YES;
+    }
+
+    return polkit.Result.NOT_HANDLED;
+});
