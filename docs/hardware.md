@@ -55,7 +55,7 @@ called `3.5HDMI_E_DTBO`. Decompiling it settles the question — it contains **o
 a touch controller node, and no display node whatsoever**:
 
 ```
-$ dtc -I dtb -O dts waveshare-35dpi-5b.dtbo
+$ dtc -I dtb -O dts waveshare-35dpi-5b.dtbo     # annotated for readability
 / {
     compatible = "brcm,bcm2835";
     fragment@0 {
@@ -67,6 +67,10 @@ $ dtc -I dtb -O dts waveshare-35dpi-5b.dtbo
     };
 };
 ```
+
+(Annotated: real `dtc` output prints the unresolved phandle `target =
+<0xffffffff>` plus a `__fixups__` node naming `i2c1`; the resolved target is
+substituted above for readability.)
 
 So the overlay's *entire* job is registering the touch controller. Display and
 touch are configured independently — the display comes up over HDMI with no
@@ -114,8 +118,17 @@ Goodix-TS 1-0014: probe with driver Goodix-TS failed with error -16
   configuration.
 - Reports 640×480 (`touchscreen-size-x = 0x280`, `-y = 0x1e0`), physical
   70 mm × 53 mm. 1:1 with the display, so no calibration matrix is needed.
-- The DT nodes are named `ft6236@...` but their `compatible` is `goodix,gt911`.
-  Waveshare's naming is misleading, not a bug — do not "fix" it.
+- In the **vendor** overlay the DT nodes are named `ft6236@...` but their
+  `compatible` is `goodix,gt911`. Waveshare's naming is misleading, not a bug —
+  do not "fix" it in the vendored blobs, which are kept byte-identical to
+  upstream as a provenance record. The Tracer overlay, being ours, **does**
+  rename the node to `gt911@5d` deliberately — DT binding is by `compatible`,
+  never by node name, so the rename is cosmetic and safe (see the header
+  comment in `tracer-gt911-overlay.dts`).
+- Neither overlay carries a `reset-gpios` property, so the Goodix driver
+  cannot perform an address-select reset — which is exactly why a panel
+  strapped to 0x14 needs the vendor overlay as fallback rather than being
+  coaxed onto 0x5d.
 - Requires `dtparam=i2c_arm=on`, already set.
 
 ### The 0x14 probe failure is expected — and it is log noise we must suppress
@@ -129,10 +142,13 @@ rest, and criterion 1 requires no console text during boot. Two `err`-level line
 per boot violate the spirit of both.
 
 **Fixed.** [`image/overlays/tracer-gt911-overlay.dts`](../image/overlays/tracer-gt911-overlay.dts)
-is the vendor `-5b` overlay with the 0x14 node removed and nothing else changed.
-It compiles clean with `dtc -@`, and a decompile-and-diff confirms the 0x5d node's
-property values are byte-identical to upstream — no drift in the interrupt, GPIO,
-or touchscreen-size values.
+is the vendor `-5b` overlay with the 0x14 node removed, the remaining node
+renamed `ft6236@5d` → `gt911@5d` (with a `gt911:` label), and `status = "okay"`
+added on the fragment. It compiles clean with `dtc -@`, and a
+decompile-and-diff confirms the 0x5d node's **property values** are
+byte-identical to upstream — no drift in the interrupt, GPIO, or
+touchscreen-size values. (The rename is deliberate and cosmetic; binding is by
+`compatible`. See the overlay's header comment.)
 
 The vendor blobs are kept at [`image/vendor/3.5HDMI_E_DTBO/`](../image/vendor/3.5HDMI_E_DTBO/PROVENANCE.md)
 as the fallback for a replacement panel strapped to 0x14, and as the provenance
@@ -221,24 +237,20 @@ WebSocket. The translation just happens one layer lower than the prompt assumed.
 Helpfully, the design mock already anticipated this — the Settings screen carries
 a `Button mapping · Gamepad-first` row, which is precisely the remap UI this needs.
 
-### Open item: the physical key → keycode mapping is not yet captured
+### The physical key → keycode mapping — captured
 
-Because the keyboard is a CircuitPython HID device advertising the *entire* usage
-page, its keybits tell us nothing about which physical keys exist. Determining
-which keycode each physical control emits requires someone pressing each button
-while `evtest` runs — it cannot be derived from the device remotely.
+Resolved 2026-09-01: two independent passes over all twelve controls on the
+live unit produced identical codes, committed as
+[`tracerd/keymap.default.json`](../tracerd/keymap.default.json). See
+[controls.md — "Default keymap — captured from hardware"](controls.md#default-keymap--captured-from-hardware)
+for the full table. Notably, A/B are the literal letter keys `KEY_A`/`KEY_B`
+(not Enter/Esc as the pre-capture plan assumed), and Start/Select are
+`KEY_PAUSE`/`KEY_SYSRQ`.
 
-This does **not** block the build. The plan is:
-
-- Ship a default keymap (`arrows`→D-pad, `Enter`→A, `Esc`→B, `x`/`y`→X/Y,
-  `q`/`e`→L/R) matching the mock's own dev bindings.
-- Make the keymap a data file in `settings.json`, not code.
-- Add a `tracerd --capture-keymap` mode that prints each keycode as it arrives, so
-  the real mapping can be recorded in one pass on hardware and committed.
-
-**Ask for the operator:** run `evtest /dev/input/event0`, press each physical
-control once in a known order, and paste the output. That one capture closes this
-permanently.
+The capture tool that ships is
+[`tracerd/tools/capture_keymap.py`](../tracerd/tools/capture_keymap.py) — a
+standalone script, run on the device; there is no `tracerd --capture-keymap`
+flag.
 
 ---
 
@@ -311,6 +323,23 @@ set `off` as the prompt specifies.
 
 ---
 
+## Thermals — the active cooler must be enabled explicitly
+
+The base DTB ships `cooling_fan` with `status="disabled"` and relies on the
+firmware detecting a fan on the 4-pin header at boot. On this chassis that
+detection does not fire: with the official Active Cooler correctly fitted,
+`/proc/device-tree/cooling_fan/status` stayed `disabled`, no cooling device
+appeared, and the board idled at **66–70 °C**. The fan still spins briefly at
+power-on (5 V reaches it before anything drives PWM), which makes the failure
+easy to misread as working.
+
+The Tracer image therefore sets `dtparam=cooling_fan=on` explicitly, with the
+firmware-default fan curve written out for reviewability — see the config.txt
+block in [`image/layer/tracer-base.yaml`](../image/layer/tracer-base.yaml) and
+[boot.md §1](boot.md). The bake-time verify asserts the line is present.
+
+---
+
 ## CAN
 
 Not present on this unit — no `can0` interface and no CAN HAT fitted. The
@@ -340,28 +369,60 @@ Five, all resolved in favour of the hardware or the existing in-house tooling.
 |---|---|---|---|
 | 1 | Panel may be DSI/SPI; SPI "changes the display path materially" | **HDMI**, native 640×480, driven by stock `vc4-kms-v3d` | Simplest possible path. No `fbcp-ili9341`, no tinydrm. |
 | 2 | Buttons are "GPIO or USB HID" gamepad | USB HID **keyboard + mouse + consumer control**; no gamepad collection exists | Keep the A/B/X/Y model; implement it as a keymap in `tracerd.input`. GUI contract unchanged. |
-| 3 | Build the image with **pi-gen** and a custom `stage-tracer` | TrailCurrent already has a working **`rpi-image-gen`** wrapper at `TrailCurrentHeadwaters/CM5/image/` | **Recommend `rpi-image-gen`.** See below. |
+| 3 | Build the image with **pi-gen** and a custom `stage-tracer` | TrailCurrent already has a working **`rpi-image-gen`** wrapper at `TrailCurrentHeadwaters/CM5/image/` | **Decided: `rpi-image-gen`**, pinned at `RPIIG_REF=cb909cb` in `image/build.sh`. See below. |
 | 4 | Splash via **Plymouth** with a `tracer` theme | Headwaters uses rpi-image-gen's `rpi-splash-screen` layer and a 1920×1080 TGA | Port `generate-splash.sh`, but retarget to **640×480**. Plymouth vs splash-layer is a real choice — see [boot.md](boot.md). |
 | 5 | `dtparam=audio=off` | Currently `on`; speaker is fed from HDMI regardless | Safe to set `off` as specified. |
 
 ### On #3 — pi-gen vs rpi-image-gen
 
-Worth a deliberate decision rather than following the prompt by reflex.
-`TrailCurrentHeadwaters/CM5/image/` is a mature, working `rpi-image-gen` setup
-that already solves most of what `stage-tracer` would have to solve from scratch:
-declarative layer YAML, a Docker-less reproducible build, bake-time verification
-(`verify-image.sh`), first-boot hooks, a captive-portal AP, and the splash
-pipeline. It targets Debian bookworm; this unit runs trixie, so a base bump is
-needed either way.
+**Decided: `rpi-image-gen`.** The checkout is pinned at `RPIIG_REF=cb909cb` in
+[`image/build.sh`](../image/build.sh) — pinned deliberately, because upstream
+changes its own interface (`-D` became `-S`), so following main would break
+the build on someone else's schedule.
+
+The reasoning that led there: `TrailCurrentHeadwaters/CM5/image/` is a mature,
+working `rpi-image-gen` setup that already solves most of what `stage-tracer`
+would have to solve from scratch: declarative layer YAML, a Docker-less
+reproducible build, bake-time verification, first-boot hooks, a captive-portal
+AP, and the splash pipeline. And no base bump was needed: upstream
+rpi-image-gen ships a **trixie**-minbase that already targets rpi5, which is
+exactly what Tracer includes
+([`image/config/tracer-os.yaml`](../image/config/tracer-os.yaml)).
 
 Reusing it means one image toolchain across TrailCurrent instead of two, and
-every fix to one benefits the other. Choosing pi-gen means rebuilding that
-groundwork to satisfy a prompt line rather than a requirement.
+every fix to one benefits the other. Choosing pi-gen would have meant
+rebuilding that groundwork to satisfy a prompt line rather than a requirement.
+The prompt's actual hard requirements — `make image`, reproducible,
+x86-capable via binfmt, `.img.xz` + `.sha256` output — are all satisfied.
 
-The prompt's actual hard requirements — `make image`, reproducible, x86-capable
-via binfmt, `.img.xz` + `.sha256` output — are all satisfiable with either. I
-recommend `rpi-image-gen`, and **I have not committed to either until you
-confirm**, since it shapes the whole `image/` tree.
+---
+
+## Battery and backlight — resolved
+
+Both former open items were settled on hardware and are now deliberate
+decisions:
+
+**Battery: no indicator at all — deliberately.** The PocketTerm35 gives the Pi
+no way to read charge state, verified on the device rather than assumed:
+`/sys/class/power_supply/` is empty, no fuel-gauge module loads, nothing
+answers on i2c-1, and the devices on i2c-13 (0x37 0x3a 0x4a 0x4b 0x50) are the
+HDMI DDC/EDID bus, not power. Waveshare documents battery state only as four
+front-panel LEDs on the UPS board. A gauge that permanently reads `--` is
+worse than no gauge — on a handheld it reads as a flat or failing battery,
+exactly the wrong thing to tell a technician mid-diagnosis. The decision and
+its evidence live in the comment block in
+`tracer-ui/src/chrome/chrome.js` (`statusBar`); if a future carrier exposes a
+real supply, reinstate from `/sys/class/power_supply` rather than guessing.
+
+**Backlight: software dim, enabled — with a floor.** No kernel backlight
+device exists, so the Settings `Brightness` slider is backed by a compositing
+dim the GUI applies itself, labelled "% (dim)" so it never implies backlight
+control (`tracerd/tracerd/modules/settings.py`, help text: "This panel has no
+backlight control, so this dims what is drawn"). It reduces emitted light and
+glare — the actual need at night beside a vehicle — but not power draw. The
+dim is floored at 0.35 (`tracer-ui/src/main.js`, `applyBrightness`) so the
+screen can never be dimmed to the point where the brightness control itself is
+unreadable and unrecoverable.
 
 ---
 
@@ -370,14 +431,8 @@ confirm**, since it shapes the whole `image/` tree.
 Honest list of what is *not* yet confirmed, so nothing here reads as more settled
 than it is:
 
-- **Physical key → keycode mapping** (see above; needs one `evtest` capture).
-- **Battery / charge reporting.** The `power` module needs a battery percentage;
-  no power-management IC has been identified on this carrier yet. If none is
-  exposed, battery must render as `--` per the copy convention rather than being
-  faked.
-- **Backlight control.** No backlight device located yet under
-  `/sys/class/backlight`. If the panel's brightness is not software-controllable
-  over HDMI, the Settings `Brightness` row must be disabled rather than shown
-  as an inert control.
-- **CAN on Pi 5** with the `nospi10` interaction noted above.
-- **Boot time.** The 12 s target is untested; no measurement taken yet.
+- **CAN on Pi 5** with the `nospi10` interaction noted above. `CanModule`
+  currently raises "no can0 interface" on this unit — no HAT fitted, nothing
+  exercised.
+- **Boot time.** The image is built, but the 12 s target is untested; no
+  measurement taken yet.

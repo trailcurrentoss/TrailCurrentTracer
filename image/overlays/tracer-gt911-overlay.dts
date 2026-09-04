@@ -2,8 +2,9 @@
  * tracer-gt911 — Goodix GT911 capacitive touch for the Waveshare PocketTerm35.
  *
  * Derived from Waveshare's waveshare-35dpi-5b.dtbo
- * (https://files.waveshare.com/wiki/common/3.5HDMI_E_DTBO.zip,
- *  sha256 b86a6e34a54c86eacac8ab4a4a135b9217307b2cafa59b59fa5e70fd0605377e),
+ * (from https://files.waveshare.com/wiki/common/3.5HDMI_E_DTBO.zip; the .dtbo's
+ *  sha256 is b86a6e34a54c86eacac8ab4a4a135b9217307b2cafa59b59fa5e70fd0605377e,
+ *  see image/vendor/3.5HDMI_E_DTBO/PROVENANCE.md),
  * with ONE change: the 0x14 node is removed.
  *
  * WHY THIS EXISTS

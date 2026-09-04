@@ -71,9 +71,30 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
-for tool in git openssl xz sha256sum; do
+for tool in git openssl xz sha256sum make python3 node; do
     command -v "$tool" >/dev/null || { echo "ERROR: '$tool' not found." >&2; exit 1; }
 done
+
+# ── Prove the software works BEFORE spending 26 minutes on an image ─
+# The daemon and GUI are copied into the rootfs wholesale, so a broken module
+# or a UI file that does not parse is not discovered by the build at all — it
+# is discovered after a flash, on hardware, by an operator staring at a blank
+# panel. The suite takes seconds; the build takes half an hour and the
+# flash-and-boot cycle takes more. Run it first, every time.
+#
+# PYTHONDONTWRITEBYTECODE stops this leaving root-owned __pycache__ directories
+# scattered through a tree the developer then cannot clean without sudo.
+echo "Running the test suite before building..."
+if ! PYTHONDONTWRITEBYTECODE=1 make -C "$REPO_ROOT" test; then
+    echo "" >&2
+    echo "ERROR: tests failed — not building." >&2
+    echo "" >&2
+    echo "Fix them and re-run. Building on a red suite means finding out on" >&2
+    echo "hardware, half an hour and a flash later, what was knowable now." >&2
+    exit 1
+fi
+echo "Tests passed."
+echo
 
 if [ "$(uname -m)" != "aarch64" ] && [ ! -f /usr/bin/qemu-aarch64-static ]; then
     echo "ERROR: cross-building from $(uname -m) needs qemu-user-static." >&2
@@ -93,6 +114,59 @@ if [ ! -f "$SCRIPT_DIR/overlays/tracer-gt911.dtbo" ]; then
     echo "ERROR: overlays/tracer-gt911.dtbo missing." >&2
     echo "  Run: make overlays   (from the repo root)" >&2
     exit 1
+fi
+
+# ── Stale mounts from an interrupted build ──────────────────────────
+# An interrupted build (Ctrl-C, a kill, a crash) leaves the host's /proc and
+# friends mounted inside the chroot. The NEXT build then reaches genimage,
+# which does `cp -a chroot/filesystem -> staging`, walks into that live procfs
+# and tries to copy /proc/kcore — a pseudo-file the size of physical memory.
+# The disk fills, and the failure arrives ~20 minutes in as thousands of `cp`
+# errors that name everything except the actual cause.
+#
+# Clean it up automatically. These mounts are inside this script's own scratch
+# tree, created by this script's own previous run — nothing else on the host
+# has any business there, so unmounting them needs no permission from the user.
+# Making the operator do it by hand is how a 26-minute build turns into an
+# afternoon of detective work.
+#
+# Deepest path first, or unmounting a parent fails while a child is still on it.
+stale_mounts="$(awk -v d="$RPIIG_DIR/work/" 'index($5, d) == 1 { print $5 }' \
+                /proc/self/mountinfo 2>/dev/null | sort -r || true)"
+if [ -n "$stale_mounts" ]; then
+    echo "Previous build left filesystems mounted; cleaning up:"
+    printf '%s\n' "$stale_mounts" | while IFS= read -r m; do
+        [ -n "$m" ] || continue
+        echo "  umount $m"
+        # Lazy only as a fallback, and it is the right fallback here: it
+        # detaches the mount immediately so nothing can recurse from that path
+        # into a live procfs, which is the only property the rm below needs.
+        umount "$m" 2>/dev/null \
+            || umount -l "$m" 2>/dev/null \
+            || echo "    WARNING: could not unmount $m" >&2
+    done
+
+    # Anything still mounted means something outside this build is holding it.
+    # Stop rather than risk cp/rm walking into a live filesystem.
+    still="$(awk -v d="$RPIIG_DIR/work/" 'index($5, d) == 1 { print $5 }' \
+             /proc/self/mountinfo 2>/dev/null || true)"
+    if [ -n "$still" ]; then
+        echo "ERROR: still mounted after cleanup:" >&2
+        printf '%s\n' "$still" | sed 's/^/  /' >&2
+        echo "Find the holder with:  sudo fuser -vm <path>" >&2
+        exit 1
+    fi
+
+    # Mounts left behind mean the previous run died partway, so the chroot it
+    # was building is of unknown completeness. Discard it: a stale chroot is
+    # how a build silently produces an image missing whatever the dead run had
+    # not yet installed. Costs a re-bootstrap, which is cheap next to shipping
+    # a card that is wrong in a way nothing reports.
+    for c in "$RPIIG_DIR"/work/chroot-*; do
+        [ -e "$c" ] || continue
+        echo "  discarding incomplete chroot $(basename "$c")"
+        rm -rf "$c"
+    done
 fi
 
 # ── Device account ──────────────────────────────────────────────────
@@ -202,6 +276,39 @@ echo "      so it boots to the splash and then the launcher. State is NOT"
 echo "      carried over from a previous card: the Headwaters CA, the SSH key"
 echo "      and settings.json are generated per unit under /var/lib/tracer."
 echo
+
+# ── Discard previous image output ───────────────────────────────────
+# Exactly one flashable image must exist when this finishes.
+#
+# Builds take ~26 minutes, so a fix-and-rebuild cycle is slow enough that the
+# previous image is still sitting there looking plausible when the new one
+# lands. Worse, the names collide only sometimes: `git describe` gives
+# c1bd446-dirty for every build off a dirty tree, but falls back to "dev" when
+# it cannot run, so two builds of DIFFERENT code can produce two differently
+# named images, both current-looking. That is how a stale card gets flashed and
+# a fix gets diagnosed as not working — which cost most of a day.
+#
+# So: delete the previous outputs up front, not at the end. Doing it here means
+# a build that fails leaves NOTHING flashable behind, which is the honest
+# outcome — a failed build has no image, and an empty deploy/ says so plainly.
+#
+# Only build PRODUCTS are removed. The chroot is left alone: it is expensive to
+# recreate and rpi-image-gen overwrites it anyway.
+echo "Clearing previous image output..."
+for stale in "$DEPLOY_DIR" "$RPIIG_DIR"/work/image-* "$RPIIG_DIR"/work/deploy-*; do
+    [ -e "$stale" ] || continue
+    # Refuse to walk into anything still mounted. The preflight above should
+    # have caught it; this is the second line of defence, because an `rm -rf`
+    # that recurses into a live /proc is far worse than a failed build.
+    if awk -v d="$stale" 'index($5, d) == 1 { found = 1 } END { exit !found }' \
+           /proc/self/mountinfo 2>/dev/null; then
+        echo "ERROR: '$stale' has something mounted under it; refusing to remove it." >&2
+        exit 1
+    fi
+    echo "  removing $(basename "$stale")"
+    rm -rf "$stale"
+done
+mkdir -p "$DEPLOY_DIR"
 
 cd "$RPIIG_DIR"
 # -S, not -D: upstream renamed the custom-sources flag. And overrides MUST come

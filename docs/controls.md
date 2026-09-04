@@ -36,7 +36,28 @@ Each with `phase` = `down` | `up` | `hold`.
 | Y | Context action 2 — usually pin/mark/toggle |
 | L / R | Adjust a focused slider; otherwise jump to first/last |
 | Esc | Cancel a text field (real key on the keyboard) |
-| Touch | Everything reachable by button is tappable; hit targets ≥ 44 px |
+| Touch | Everything reachable by button is tappable. Hit targets of ≥ 44 px are the aspiration, not an enforced property of the build — nothing checks it, and the chrome bars (30 px) and hint pills are already smaller. |
+
+### The WiFi gate is a global input mode
+
+When the daemon reports no usable network at startup, a full-screen WiFi gate
+([`tracer-ui/src/apps/wifi-setup.js`](../tracer-ui/src/apps/wifi-setup.js))
+**swallows every button** while it is up — the input router hands everything
+to it before any screen handler runs (`tracer-ui/src/main.js`, `press()`).
+It is effectively a third global input mode alongside nav and text. The same
+picker opened from Settings is dismissible with Back; the boot gate is not.
+
+### The power button
+
+The physical power button never hard-kills the unit on a short press. The
+image sets `HandlePowerKey=ignore` with `HandlePowerKeyLongPress=poweroff`
+([`image/layer/tracer-base.yaml`](../image/layer/tracer-base.yaml)), so a
+short press arrives at the GUI as an event and raises a **confirmation
+dialog** ("Shut down?"), which calls `power.shutdown` with `confirm: true` —
+`power.py` refuses the operation without it (`tracer-ui/src/main.js`,
+`onPowerKey`). A long press still powers off at the logind level, as the
+escape hatch. Rationale: this is a handheld tool that gets carried in a bag,
+and a brushed button used to kill it mid-capture with no warning.
 
 ### Start and Select are the universal pair
 
@@ -84,24 +105,56 @@ and warns that B types a letter.
 
 ## Per-app hints
 
-The bottom hint bar always shows the **current** meaning of A/X/Y/B for the
-focused context. Values are lifted verbatim from the design mock's `HINTS` block:
+The bottom hint bar always shows the **current** meaning of the buttons for
+the focused context. The table below is generated from the live `HINTS` object
+in [`tracer-ui/src/chrome/chrome.js`](../tracer-ui/src/chrome/chrome.js),
+which **deliberately diverges from the design mock's HINTS block**: the legend
+leads with Start/Select, not A/B, because Start and Select are the only
+buttons that mean the same thing in every mode — including inside a text
+field, where A and B necessarily type letters. Showing "A Open" taught a model
+that stops being true the moment the operator edits anything. A and B still
+function as shortcuts while navigating; they are simply not what the legend
+advertises.
 
-| App | A | B | X | Y |
-|---|---|---|---|---|
-| Launcher | Open | Back | Search | Pin to top row |
-| MQTT Inspector | Expand | Home | Pause | Capture |
-| Discovery | Confirm | Home | Rescan | Details |
-| Capture | Record | Home | Filter | Upload |
-| Firmware | Toggle target | Home | Push | Manifest |
-| Network | Recheck | Home | Rejoin | Static IP |
-| Terminal | — | Home | Ctrl-C | Paste (L/R = Tab) |
-| Logs | Expand | Home | Level | Follow |
-| CAN Sniffer | Decode | Home | Freeze | Send frame |
-| Headwaters | Container | Home | Restart | Logs |
-| GNSS & Map | Center | Home | Sat view | Mark |
-| Checklist | Toggle | Home | Rerun | Export |
-| Settings | Edit | Home | Reset | Reboot |
+| App | Start | Select | X | Y | L/R |
+|---|---|---|---|---|---|
+| Launcher | Open | — | Search | Pin | — |
+| MQTT Inspector | Expand | Back | Pause | Clear | — |
+| Discovery | Confirm | Back | Scan | Details | — |
+| Capture | Record | Back | Filter | Upload | — |
+| Firmware | Toggle | Back | Push | Manifest | — |
+| Network | Recheck | Back | Rejoin | Static IP | — |
+| Terminal | — | Back | Ctrl-C | Paste | Tab |
+| Logs | Expand | Back | Level | Follow | — |
+| CAN Sniffer | Decode | Back | Freeze | Send frame | — |
+| Headwaters | Container | Back | Restart | Logs | — |
+| GNSS & Map | Center | Back | Sat view | Mark | — |
+| Simulate | Open | Back | — | — | — |
+| Module Debug | Connect | Back | — | Rescan | Baud |
+| Settings | Open | Back | Search | Reboot | — |
+
+Not everything the legend advertises is wired up yet. **Toast-only stubs**
+(the button shows a toast and does nothing): Launcher `X Search`, Launcher
+`Y Pin`, Network `X Rejoin`, Network `Y Static IP` ("Static IP not
+implemented") — see the launcher and net handlers in
+`tracer-ui/src/main.js`.
+
+**Legend-vs-behaviour divergences** worth knowing about in Logs: the legend
+says `Start Expand` and `Y Follow`, but per the handler in `main.js` the
+confirm button actually **cycles the log source** (Tracer ↔ Headwaters units)
+and `Y` triggers a **refresh**. The legend has not caught up with the
+behaviour there.
+
+### The generic-Back fall-through — a contract for new screens
+
+The router runs a generic Back handler **last**: `if (btn === "b")
+leaveApp()`. Per-screen handlers must let an unhandled `b` fall through to it
+(`if (btn !== "b") return;` instead of a bare `return;`) — a bare `return`
+is exactly what once stopped Select leaving an app after that screen handled
+its own keys. Conversely, screens with their own hierarchy (the firmware file
+browser, capture playback) claim Back first so it means "up one level" there.
+Every new screen handler must honour this contract; see the comments in
+`tracer-ui/src/main.js`.
 
 ---
 
@@ -163,6 +216,12 @@ So `input` is modal:
 
 The mode is owned by `tracerd`, not the GUI, so there is exactly one source of
 truth about whether a keystroke is a button or a character.
+
+The daemon also **auto-recovers to nav when the last GUI client disconnects**
+(`tracerd/tracerd/modules/inputmod.py`, `on_clients_changed`). Text mode is
+entered and left by the GUI; if the GUI crashes or reloads mid-edit, the
+daemon would otherwise be stuck in text mode with every button typing a letter
+and no way back. Resetting on zero clients makes that state unreachable.
 
 **Start and Select are the only two non-typeable buttons.** That makes them the
 only keys guaranteed safe as a universal escape from text mode, which is why
@@ -251,6 +310,12 @@ device:
 
 Dev mode also wraps the app in a 640×480 frame so the laptop view matches the
 panel exactly.
+
+Deep-links: `?screen=<id>` opens a screen directly, and `?group=<n>` /
+`?row=<n>` open a Settings group and row (`tracer-ui/src/main.js`). They exist
+for the screenshot-diff workflow — nested screens are otherwise unreachable
+from a cold page load — and are harmless in production: the daemon still owns
+every value; the parameters only pick the starting view.
 
 Note these differ from the *device* default keymap above (dev uses Z/X/C/V for
 A/B/X/Y; the device default uses Enter/Esc/X/Y). The dev bindings are the

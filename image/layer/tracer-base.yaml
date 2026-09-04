@@ -253,6 +253,24 @@ mmdebstrap:
     # owns wifi and talks to wpa_supplicant; networkd keeps eth0 only.
     - |
       fail() { echo "TRACER LAYER FAILED: $*" >&2; exit 1; }
+      # The device account MUST be in netdev in /etc/group, not merely given
+      # the group by the unit's SupplementaryGroups.
+      #
+      # 49-tracer-networkmanager.rules gates on subject.isInGroup("netdev"),
+      # and polkit resolves a subject's groups from the SYSTEM GROUP DATABASE
+      # by uid — it never inspects the running process's supplementary groups.
+      # So the unit can hold netdev at runtime while polkit still answers "not
+      # in netdev", every NM action falls through to NOT_HANDLED, and the GUI
+      # reports "NetworkManager refused the scan request" and "Not authorized
+      # to control networking" with no hint that a group is the reason.
+      #
+      # rpi-image-gen's device_user1groups default does not include netdev, so
+      # this cannot be left to the upstream layer.
+      test -n "$IGconf_device_user1" || fail "device_user1 is unset: cannot add an unnamed account to netdev"
+      chroot "$1" getent group netdev >/dev/null \
+        || fail "netdev group does not exist in the image: the NetworkManager polkit rule could never match"
+      chroot "$1" usermod -aG netdev "$IGconf_device_user1" \
+        || fail "could not add $IGconf_device_user1 to netdev: wifi scan and connect would both be denied"
       # Mask, not just disable: masking survives a later `systemctl enable`
       # from any other layer's hook, and iwd's own layer enables it.
       chroot "$1" systemctl mask iwd.service \
@@ -481,6 +499,13 @@ mmdebstrap:
         || fail "polkitd not installed: the polkit rules below are inert, so WiFi scan, clock and locale would all silently do nothing"
       # Without the polkit rule the WiFi scan silently returns a stale cache.
       test -f "$R/etc/polkit-1/rules.d/49-tracer-networkmanager.rules" || fail "NetworkManager polkit rule missing"
+      # The rule above gates on isInGroup("netdev"), and polkit reads group
+      # membership from /etc/group by uid — NOT from the unit's
+      # SupplementaryGroups. An image shipped with the group only on the unit
+      # scanned nothing and could not join a network, while every file this
+      # block checks was present and correct. Assert the DATABASE, not the unit.
+      chroot "$R" id -nG "$IGconf_device_user1" 2>/dev/null | tr ' ' '\n' | grep -qx netdev \
+        || fail "$IGconf_device_user1 is not in netdev in /etc/group: polkit will refuse every NetworkManager request, so wifi cannot scan or connect"
       # WiFi needs a supplicant, one manager, and no second claimant. Shipped
       # once with none of the three right: NM looped forever on "Failed to
       # D-Bus activate wpa_supplicant service" and the Wi-Fi screen was inert.

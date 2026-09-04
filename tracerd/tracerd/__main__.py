@@ -2,7 +2,9 @@
 
     python3 -m tracerd                 # on device
     python3 -m tracerd --mock          # laptop, synthetic data
-    python3 -m tracerd --capture-keymap  # record hardware keycodes
+
+Keymap capture is a standalone tool, not a flag here — see
+tracerd/tools/capture_keymap.py.
 
 Serves the WebSocket + REST API on 127.0.0.1:8710 and, when --ui-dir is given,
 the built GUI from the same origin.

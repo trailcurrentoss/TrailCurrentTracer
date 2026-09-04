@@ -18,7 +18,9 @@ and installed by `image/layer/tracer-base.yaml`. The dev board is disposable.
 
 `tracer-base.yaml` ends with a verification hook that **fails the build** if
 any of these is missing. They are all cases where the image would otherwise
-boot, look healthy, and be quietly broken.
+boot, look healthy, and be quietly broken. (Rows marked *not checked* are
+captured in the repo and installed by the layer, but have no bake-time
+assertion yet.)
 
 | # | What | Where it lives | Build check | Why it bites |
 |---|---|---|---|---|
@@ -33,14 +35,14 @@ boot, look healthy, and be quietly broken.
 | 9 | `tracer-ui` | `tracer-ui/` → `/opt/tracer/tracer-ui` | `index.html` present | Blank screen |
 | 10 | Generated icon subset | `tracer-ui/src/icons.js` (committed) | non-empty | Every icon on every screen renders blank |
 | 11 | `_EDIT_KEYS` defined | `tracerd/modules/inputmod.py` | grep | Text entry dies silently — this exact bug shipped once |
-| 12 | Units enabled | `image/systemd/*.service` | wants-symlink present | Boots to a blank screen |
+| 12 | Units enabled | `image/systemd/*.service` | wants-symlink present (`tracerd.service` only — no check for `tracer-ui.service`) | Boots to a blank screen |
 | 13 | MQTT client (stdlib) | `tracerd/mqttclient.py` | file present | No broker connection; Inspector, Discovery and CAN feed all dead |
 | 14 | MQTT module | `tracerd/modules/mqtt.py` | file present | as above |
 | 15 | MQTT Inspector screen | `tracer-ui/src/apps/mqtt.js` | file present | Screen falls back to the "not implemented" stub |
 | 16 | Per-topic rate is windowed | `modules/mqtt.py` | `grep def sample` | Instantaneous `1/dt` reported `can/inbound` at 8904/s against a real 142 msg/s |
-| 17 | SSH substrate helpers | `tracerd/sshcopy.py` | file present | No CA fetch, no Mongo read, no `docker logs` — every Headwaters path goes through this |
-| 18 | Discovery module | `tracerd/modules/discovery.py` | file present | No device registry, no scan trigger |
-| 19 | Discovery screen | `tracer-ui/src/apps/discovery.js` | file present | Falls back to the not-implemented stub |
+| 17 | SSH substrate helpers | `tracerd/sshcopy.py` | *not checked* | No CA fetch, no Mongo read, no `docker logs` — every Headwaters path goes through this |
+| 18 | Discovery module | `tracerd/modules/discovery.py` | *not checked* | No device registry, no scan trigger |
+| 19 | Discovery screen | `tracer-ui/src/apps/discovery.js` | *not checked* | Falls back to the not-implemented stub |
 
 ---
 
@@ -73,10 +75,12 @@ reader knows they were deliberate, and can find the reasoning.
 
 ## Regression tests
 
-`make test` — 13 tests over the input dispatch path, the layer the
-`_EDIT_KEYS` bug hid in. `compileall` passed while text entry was dead,
-because the name was only referenced *inside a function*. **Anything reached
-only by a real keypress needs a test that presses a key.**
+`make test` — 59 daemon unit tests across four suites (input dispatch,
+osconfig, layer-YAML invariants, moduledebug reader), a `node --check` syntax
+pass over every UI module, and 4 UI render tests. The 13 input-dispatch tests
+cover the layer the `_EDIT_KEYS` bug hid in: `compileall` passed while text
+entry was dead, because the name was only referenced *inside a function*.
+**Anything reached only by a real keypress needs a test that presses a key.**
 
 ---
 
@@ -85,10 +89,10 @@ only by a real keypress needs a test that presses a key.**
 | | Why |
 |---|---|
 | `openssh-server` | Tracer is a handheld tool, not a host to log into. Add it to a debug variant if needed |
-| `tracer-ui/node_modules` | Only needed to regenerate `icons.js`; the output is committed |
-| `tracerd/tests` | Stripped at install |
+| `tracer-ui/node_modules`, `package-lock.json` | Only needed to regenerate `icons.js`; the output is committed |
+| `tracerd/tests` | Stripped at install (`tracer-ui/tests/` and `tracer-ui/scripts/` are **not** stripped and do ship) |
 | `__pycache__`, `*.pyc` | Stripped — a stale `.pyc` on the dev board once made a fix look like it had not deployed |
-| Anything under `~/tracer-dev` | `make dev` scratch only. It installs no unit and writes nothing outside `$HOME`, so a dev deploy can never leak into a build |
+| Anything under `~/tracer-dev` | Plain `make dev` scratch only — it installs no unit and writes nothing outside `$HOME`. (`make dev-autostart` additionally writes `~/.config/autostart/tracer-dev.desktop` on the board; `make dev-shot` writes `./panel.png` into the repo, gitignored.) |
 
 ---
 
@@ -131,6 +135,8 @@ Honest list — these are known gaps, not oversights:
   service user would be tighter than reusing the login account.
 - **`/var/log` tmpfs and the read-only rootfs overlay** are designed in
   [boot.md](boot.md#7-read-only-rootfs) but not yet in the layer.
-- **No image has been built or booted yet.** Every check above is written
-  against a build that has not run. The first `sudo make image` is where this
-  manifest gets tested — expect to fix things, and add rows here when you do.
+- **An image has been built, but not yet boot-verified.** The first
+  `sudo make image` completed (output: `image/deploy/tracer-os-dev.img.xz`),
+  so the bake-time checks above have all run and passed at least once. The
+  flash-and-boot pass on hardware is still outstanding — expect to fix
+  things, and add rows here when you do.

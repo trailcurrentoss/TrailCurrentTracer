@@ -7,8 +7,9 @@ flashed Tracer must not need another checkout present to know the frame
 layouts (docs/api.md C1).
 
 **It is a copy, not a fork.** Re-copy it whenever the fleet DBC changes; do
-not edit it here. `make verify-dbc` re-parses it and fails if any message or
-signal stops decoding.
+not edit it here. Nothing re-validates the copy automatically: the Simulate
+module parses it when the daemon starts, so after re-copying, run `make mock`
+and open Simulate to confirm every message and signal still decodes.
 
 Used by `tracerd/modules/simulate.py` to generate the Simulate app's forms and
 to encode frames. Every field the UI shows — signal names, bit layout, scale,

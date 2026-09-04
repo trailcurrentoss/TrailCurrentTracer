@@ -33,5 +33,6 @@ status line; the shipped splash is a static TGA matching Headwaters' composition
 with the Tracer icon. That is a deliberate decision, not an oversight — see
 [../docs/boot.md](../docs/boot.md#3-splash).
 
-Everything else should match the mock. Screenshots of all twelve apps get diffed
-against it at 640×480.
+Everything else should match the mock. Checking is manual today: `make dev-shot`
+captures the panel at 640×480 into `./panel.png` for side-by-side comparison —
+there is no automated screenshot diff yet.

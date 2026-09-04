@@ -13,7 +13,9 @@
 
 Tracer uses [`rpi-image-gen`](https://github.com/raspberrypi/rpi-image-gen), the
 same tool as Headwaters, so both TrailCurrent products build the same way and a
-fix to one transfers to the other.
+fix to one transfers to the other. `build.sh` pins it to a known-good commit
+(`RPIIG_REF`, currently `cb909cb` = v2.8.0-15) and re-checks it out on every
+run; override with `RPIIG_REF=<sha> sudo ./image/build.sh` to test a newer one.
 
 ---
 
@@ -32,8 +34,11 @@ Cross-building from x86_64 also needs:
 sudo apt install qemu-user-static binfmt-support
 ```
 
-`build.sh` checks all of this and fails early with a specific message rather
-than part-way through a 30-minute build.
+`build.sh` fails early with a specific message on the pieces it checks: root,
+qemu on x86_64, `git`/`openssl`/`xz`/`sha256sum`, and the two build inputs (the
+splash TGA and the compiled `.dtbo`). `dtc` and ImageMagick are checked by
+`make overlays` and `generate-splash.sh` respectively; free disk space is not
+checked.
 
 ---
 
@@ -108,10 +113,13 @@ written down anywhere in the tree. These ship as templates containing
 | `image/systemd/tracerd.service` | `image/layer/tracer-base.yaml` |
 | `image/systemd/tracer-ui.service` | `image/layer/tracer-base.yaml` |
 | `image/layer/files/010_tracer-system` (sudoers) | `tracer-base.yaml`, and `scripts/dev-provision.sh` for a dev board |
+| `image/layer/files/50-tracer-timedate.rules` | `tracer-base.yaml`, and `scripts/dev-provision.sh` for a dev board |
+| `image/layer/files/51-tracer-power.rules` | `tracer-base.yaml` only — image-only, like `70-tracer-no-pointer.rules`; `dev-provision.sh` installs neither, so a dev board keeps its pointer cursor and GUI power-off stays unauthorized |
 
-The image's verify step fails the build if any `@TRACER_USER@` survives into the
-rootfs, if a unit does not run as the created account, or if that account does
-not exist. Each of those fails silently at runtime otherwise.
+The image's verify step fails the build if `@TRACER_USER@` survives in any of
+the four files it substitutes, if a unit does not run as the created account,
+or if that account does not exist. Each of those fails silently at runtime
+otherwise.
 
 Note that `010_tracer-system` does **not** pass `visudo -c` as it sits in the
 repo — `@TRACER_USER@` is not a valid user name. Validate the substituted copy.
@@ -125,7 +133,11 @@ image/deploy/tracer-os-<version>.img.xz.sha256
 ```
 
 `<version>` comes from `git describe --tags --always --dirty`, so an image built
-from uncommitted work is labelled `-dirty` and cannot be confused with a release.
+from uncommitted work is labelled `-dirty`. **Caveat:** when `git describe`
+fails, `build.sh` falls back to `dev` — and under `sudo` it currently *does*
+fail (git's `safe.directory` check rejects running as root in a user-owned
+checkout), so images from the documented `sudo` path come out as
+`tracer-os-dev.img.xz` and the `-dirty` guarantee does not hold there.
 
 ---
 
@@ -155,10 +167,10 @@ customisation, which would fight the image's own boot configuration.
 | Touch | `tracer-gt911.dtbo` — our overlay, not Waveshare's ([why](hardware.md#the-0x14-probe-failure-is-expected--and-it-is-log-noise-we-must-suppress)) |
 | Splash | 640×480 TGA via the `rpi-splash-screen` layer |
 | Networking | NetworkManager (`nmcli` backs the `net` module) |
-| Diagnostics | `can-utils`, `gpsd`, `chrony`, `openssh-client` |
-| Trimmed | 10 systemd units disabled, each justified in [boot.md](boot.md#6-trimmed-units) |
+| Diagnostics | `can-utils`, `gpsd`/`gpsd-clients`, `openssh-client`. Time sync is `systemd-timesyncd` — **not** chrony, which conflicts with it (see the note in `tracer-base.yaml`) |
+| Trimmed | 9 systemd units disabled, each justified in [boot.md](boot.md#6-trimmed-units); `seatd` enabled |
 | Hardening | `kernel.sysrq=0` — [required, not cosmetic](controls.md#safety-select-is-bound-to-sysrq) |
-| **Missing** | **`tracerd` and `tracer-ui`** — not implemented yet |
+| Application | `tracerd` + `tracer-ui` installed to `/opt/tracer/`, both units enabled; the build fails at bake time if either is missing |
 
 ---
 
@@ -168,9 +180,12 @@ customisation, which would fight the image's own boot configuration.
 image/
   config/tracer-os.yaml       rpi-image-gen image config
   layer/tracer-base.yaml      packages + customize hooks (the substance)
+  layer/files/                polkit rules, sudoers drop-in, locale helper
+  systemd/                    tracerd.service, tracer-ui.service templates
   overlays/                   tracer-gt911-overlay.dts and its build product
   vendor/3.5HDMI_E_DTBO/      unmodified Waveshare blobs + PROVENANCE.md
   splash/                     generated TGA (+ PNG for eyeballing)
+  generate-splash.sh          renders the splash (needs the Marketing repo)
   build.sh                    the wrapper you actually run
   work/                       rpi-image-gen checkout and build tree (gitignored)
   deploy/                     output images (gitignored)
@@ -200,9 +215,9 @@ interrupted run:
 sudo rm -rf image/work/rpi-image-gen/work
 ```
 
-**Image boots to a blank screen after the splash.** Expected today — see the note
-at the top. Confirm the OS itself is healthy over the serial console or by
-checking that the card's partitions mounted.
+**Image boots to a blank screen after the splash.** Not expected — the image
+installs and enables both application units. Check `systemctl status tracer-ui`
+and `journalctl -u tracer-ui -u tracerd -b` over the serial console.
 
 ---
 

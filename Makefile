@@ -1,8 +1,7 @@
 # Tracer OS
 #
-# Only `overlays` and `verify-overlays` are implemented — the rest of the build
-# is gated on the API review (see docs/api.md). Unimplemented targets fail loudly
-# rather than pretending to succeed.
+# `make help` lists what is implemented. The few remaining unimplemented
+# targets (lint) fail loudly rather than pretending to succeed.
 
 # The board's address is NOT set here. It belongs to the bench the board sits
 # on, so it lives in scripts/dev.env (gitignored) — see scripts/dev.env.example.
@@ -20,8 +19,8 @@ help:
 	@echo "  verify-overlays  Prove the derived overlay matches vendor except for the 0x14 node"
 	@echo "  splash           Render the 640x480 boot splash TGA"
 	@echo "  image            Build the OS image (needs sudo). See docs/building.md."
-	@echo "                   NOTE: boots to splash then a blank screen until"
-	@echo "                   tracerd/tracer-ui exist. Useful for boot-chain testing."
+	@echo "                   Installs tracerd + tracer-ui and enables both units:"
+	@echo "                   a flashed image boots to the splash, then the launcher."
 	@echo "  clean            Remove build artifacts"
 	@echo ""
 	@echo "Run it:"

@@ -33,14 +33,25 @@
 #   ID_INPUT_KEYBOARD!="1"   never the keyboard, even if one node claims both
 #   ID_INPUT_TOUCHSCREEN!="1" never the GT911; touch must keep working
 #
-# id/vendor and id/product are the input device's own attributes: four lowercase
-# hex digits with no 0x prefix, so 0x1209/0x0001 is written 1209/0001.
+# MEASURED, NOT ASSUMED
+# Read off the working unit (Raspberry Pi OS, same hardware) on 2026-09-03 with
+# `udevadm info --query=property` over every /dev/input/event*:
 #
-# VERIFYING ON HARDWARE
-# List what libinput actually sees, and confirm no pointer is present:
+#   event1  Pico Keyboard    ID_INPUT_KEYBOARD=1     1209:0001
+#   event3  Pico Mouse       ID_INPUT_MOUSE=1        1209:0001
+#   event7  Goodix TouchScr  ID_INPUT_TOUCHSCREEN=1
+#   event0  pwr_button       (gpio-keys, no ID_INPUT_* at all)
+#
+# So the match below selects event3 and nothing else: the keyboard carries no
+# ID_INPUT_MOUSE and is excluded twice over, and the touchscreen is excluded by
+# its own guard. ID_VENDOR_ID/ID_MODEL_ID are used rather than the sysfs
+# ATTRS{id/vendor} because those are the properties actually observed present.
+#
+# RE-VERIFYING ON HARDWARE
 #   for d in /dev/input/event*; do udevadm info --query=property "$d" \
 #     | grep -qE '^ID_INPUT_MOUSE=1' && echo "$d is a pointer"; done
+# On a correct image that prints nothing at all.
 
-SUBSYSTEM=="input", ATTRS{id/vendor}=="1209", ATTRS{id/product}=="0001", \
+SUBSYSTEM=="input", ENV{ID_VENDOR_ID}=="1209", ENV{ID_MODEL_ID}=="0001", \
   ENV{ID_INPUT_MOUSE}=="1", ENV{ID_INPUT_KEYBOARD}!="1", \
   ENV{ID_INPUT_TOUCHSCREEN}!="1", ENV{LIBINPUT_IGNORE_DEVICE}="1"
