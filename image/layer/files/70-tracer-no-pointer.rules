@@ -12,6 +12,11 @@
 # operator has no mouse, so an arrow sitting on screen is confusing and it
 # obscures the UI.
 #
+# It is also not the only way a pointer can appear — see the vendor/model note
+# below. Anything libinput calls a pointer produces the same defect, and cage
+# parks it in the CENTRE of the output layout (seat.c seat_center_cursor()),
+# where it has nothing to move it and so simply sits there.
+#
 # WHY CSS DOES NOT FIX IT
 # tracer-ui already sets `cursor: none` unconditionally (tracer-ui/src/styles/
 # tokens.css) and every element inherits it. That is a CLIENT instruction:
@@ -25,33 +30,54 @@
 # nothing for the compositor to draw.
 #
 # SAFETY
-# Matched narrowly on purpose. This device also carries the keyboard, and every
-# button on the unit arrives through it — ignoring the wrong interface would
-# leave the operator with a device that cannot be navigated at all.
+# Matched on CAPABILITY, never on a device node. This unit also carries the
+# keyboard, and every button on it arrives through that device — ignoring the
+# wrong interface would leave an operator with a panel they cannot navigate.
 #
 #   ID_INPUT_MOUSE=="1"      only an interface libinput sees as a pointer
 #   ID_INPUT_KEYBOARD!="1"   never the keyboard, even if one node claims both
 #   ID_INPUT_TOUCHSCREEN!="1" never the GT911; touch must keep working
 #
-# MEASURED, NOT ASSUMED
-# Read off the working unit (Raspberry Pi OS, same hardware) on 2026-09-03 with
-# `udevadm info --query=property` over every /dev/input/event*:
+# WHY THERE IS NO VENDOR/MODEL MATCH (removed 2026-09-04)
+# This rule used to also require ID_VENDOR_ID=="1209" and ID_MODEL_ID=="0001",
+# pinning it to the RP2040. On the flashed image a cursor still sat in the
+# middle of the panel, which is proof the match never fired: cage only draws a
+# cursor when the seat HAS pointer capability (seat.c update_capabilities()
+# calls wlr_cursor_unset_image() otherwise), so a visible cursor means a
+# pointer was still enumerated.
 #
-#   event1  Pico Keyboard    ID_INPUT_KEYBOARD=1     1209:0001
-#   event3  Pico Mouse       ID_INPUT_MOUSE=1        1209:0001
-#   event7  Goodix TouchScr  ID_INPUT_TOUCHSCREEN=1
-#   event0  pwr_button       (gpio-keys, no ID_INPUT_* at all)
+# Those two properties are the fragile part. Unlike ID_INPUT_*, they are not
+# derived from the device itself — they come from
+#   /usr/lib/udev/rules.d/60-persistent-input.rules:
+#     SUBSYSTEMS=="usb", ENV{ID_BUS}=="", IMPORT{builtin}="usb_id"
+# a GATED import that silently yields nothing if the guard does not hold, and
+# they were only ever observed under Raspberry Pi OS, never on this image.
+# ID_INPUT_MOUSE by contrast cannot be missing here: libinput's udev backend
+# only adds devices that 60-input-id.rules has already tagged, so the keyboard
+# and touchscreen working at all proves that rule ran.
 #
-# So the match below selects event3 and nothing else: the keyboard carries no
-# ID_INPUT_MOUSE and is excluded twice over, and the touchscreen is excluded by
-# its own guard. ID_VENDOR_ID/ID_MODEL_ID are used rather than the sysfs
-# ATTRS{id/vendor} because those are the properties actually observed present.
+# Dropping the pin is also the correct POLICY, not just the safer match. This
+# is a sealed appliance with no pointing device: no pointer is ever legitimate,
+# whoever makes it. The narrow match could not cover a USB mouse or a wireless
+# dongle plugged in during bring-up — both of which enumerate a pointer that
+# never moves, and so park a cursor dead centre exactly like the RP2040's idle
+# mouse collection does. The guards above, not the vendor ID, are what keep
+# this safe, and they are unchanged.
+#
+# HOW THE CURSOR IS DRAWN AT ALL
+# Do not try to fix this by starving the compositor of a cursor theme. wlroots
+# 0.18's wlr_xcursor_theme_load() falls back to load_default_theme(), a bitmap
+# compiled into the library. This image already has no usable theme on disk —
+# /usr/share/icons/default inherits DMZ-White, which is not installed — and a
+# cursor appeared regardless. Removing the pointer is the only fix that holds.
 #
 # RE-VERIFYING ON HARDWARE
 #   for d in /dev/input/event*; do udevadm info --query=property "$d" \
 #     | grep -qE '^ID_INPUT_MOUSE=1' && echo "$d is a pointer"; done
-# On a correct image that prints nothing at all.
+# On a correct image that prints nothing at all. To see what is being ignored
+# rather than just that nothing survives, drop the grep and read the whole
+# property list — LIBINPUT_IGNORE_DEVICE=1 should be on any pointer node.
 
-SUBSYSTEM=="input", ENV{ID_VENDOR_ID}=="1209", ENV{ID_MODEL_ID}=="0001", \
-  ENV{ID_INPUT_MOUSE}=="1", ENV{ID_INPUT_KEYBOARD}!="1", \
-  ENV{ID_INPUT_TOUCHSCREEN}!="1", ENV{LIBINPUT_IGNORE_DEVICE}="1"
+SUBSYSTEM=="input", ENV{ID_INPUT_MOUSE}=="1", \
+  ENV{ID_INPUT_KEYBOARD}!="1", ENV{ID_INPUT_TOUCHSCREEN}!="1", \
+  ENV{LIBINPUT_IGNORE_DEVICE}="1"
