@@ -43,7 +43,7 @@ export function mqttScreen(s) {
   // Connection trouble is the whole story — show it instead of an empty grid.
   if (!connected) {
     return `
-    <div style="height:420px;padding:12px 14px;display:flex;flex-direction:column;">
+    <div style="height:var(--body-h);padding:12px 14px;display:flex;flex-direction:column;">
       <div style="display:flex;align-items:center;gap:8px;">
         <div style="font-size:15px;font-weight:500;">MQTT Inspector</div>
         <div style="flex:1"></div>
@@ -109,7 +109,7 @@ export function mqttScreen(s) {
                 border-radius:var(--r-badge);padding:1px 7px;">TLS UNVERIFIED</div>`;
 
   return `
-  <div style="display:flex;height:420px;">
+  <div style="display:flex;height:var(--body-h);">
     <div style="width:196px;border-right:1px solid var(--border);padding:10px 0;
                 overflow:hidden;">
       <div style="font-size:10px;color:var(--fg-mute);letter-spacing:1px;

@@ -103,7 +103,7 @@ export function gnssScreen(s) {
          Map tiles not checked yet</div>`;
 
   return `
-  <div style="height:420px;display:flex;">
+  <div style="height:var(--body-h);display:flex;">
     <div style="width:250px;padding:12px 14px;border-right:1px solid var(--border);
                 display:flex;flex-direction:column;">
       <div style="display:flex;align-items:center;gap:8px;">

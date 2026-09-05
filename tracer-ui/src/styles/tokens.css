@@ -22,6 +22,25 @@
   --r-badge: 16px;
   --r-full:  9999px;
 
+  /* ── Chrome geometry — the ONLY place these numbers exist ─────────
+   * The panel is exactly 640x480 and every app body is sized to fill what
+   * the two fixed bars leave over. That height used to be written out as a
+   * literal `height:420px` in 33 places across 14 files, which made the bar
+   * heights effectively unchangeable: adjusting one without the other 32
+   * either clips the last row of a list or leaves a black band, and neither
+   * shows up until that specific screen is opened on hardware.
+   *
+   * --chrome-bottom is a TOUCH TARGET, not a legend. The hint bar's buttons
+   * are tappable, and on this panel — 640x480 over 3.5", about 9 px/mm —
+   * 30px was 3.3mm tall, well under a fingertip. 52px gives ~5.8mm, which
+   * with the full-width hit areas is comfortable in the hand.
+   *
+   * Raising it further is a straight trade against list rows: at 13px text
+   * every 26px here costs one visible row on every screen at once. */
+  --chrome-top:    30px;
+  --chrome-bottom: 52px;
+  --body-h: calc(480px - var(--chrome-top) - var(--chrome-bottom));
+
   --t-fast: 0.2s ease;
   --t-slow: 0.3s ease;
 

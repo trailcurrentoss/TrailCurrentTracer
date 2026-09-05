@@ -123,7 +123,7 @@ function appStub(state) {
     : "var(--fg-mute)";
 
   return `
-  <div style="height:420px;padding:12px 14px;display:flex;flex-direction:column;">
+  <div style="height:var(--body-h);padding:12px 14px;display:flex;flex-direction:column;">
     <div style="display:flex;align-items:center;gap:8px;">
       <div style="font-size:15px;font-weight:500;">${short}</div>
       <div style="flex:1"></div>
@@ -422,6 +422,25 @@ function setCursor(screen, n) {
 }
 
 root.addEventListener("click", async (ev) => {
+  // The hint bar is checked BEFORE the modal guard, and goes straight to
+  // press() rather than through setCursor.
+  //
+  // Both are deliberate. press() is the physical buttons' own entry point and
+  // already arbitrates modals — it routes "a"/"b" to the confirm box, the WiFi
+  // gate or the screen underneath as appropriate. Sending taps anywhere else
+  // would fork navigation into a touch path and a button path that drift; the
+  // modal guard below exists for taps on rows BEHIND an overlay, which is a
+  // different problem and still handled.
+  //
+  // It also means the on-screen Start/Select keep working while a confirm
+  // dialog is up, which is the one moment an operator with a wedged keyboard
+  // most needs them.
+  const hint = ev.target.closest("[data-hint]");
+  if (hint && root.contains(hint)) {
+    await press(hint.dataset.hint);
+    return;
+  }
+
   // A modal owns every input while it is up. Without this, a tap landing on
   // a row BEHIND the overlay would move the cursor and fire "a" — which the
   // modal handler reads as Confirm. That would let a stray touch delete a

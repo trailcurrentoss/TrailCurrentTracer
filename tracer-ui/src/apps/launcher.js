@@ -1,5 +1,7 @@
 // Launcher — a single non-paginated 3x4 grid of all twelve apps.
-// Geometry from the design mock: 420px content, padding 14/14/16, gap 10px.
+// Geometry from the design mock: content fills --body-h, padding 14/14/16,
+// gap 10px. (The mock's content box was 420px, when the hint bar was a 30px
+// legend rather than a touch target — see --chrome-bottom in tokens.css.)
 
 import { icon } from "../icons.js";
 
@@ -33,7 +35,7 @@ export function launcher(state) {
 
   return `
   <div id="launcher-grid"
-       style="height:420px;padding:14px 14px 16px;display:grid;
+       style="height:var(--body-h);padding:14px 14px 16px;display:grid;
               grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr;gap:10px;">
     ${tiles}
   </div>`;

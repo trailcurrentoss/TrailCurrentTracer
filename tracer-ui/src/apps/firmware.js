@@ -39,7 +39,7 @@ export function firmwareScreen(s) {
         text-align:center;">Nothing here — no folders and no .zip files</div>`;
 
     return `
-    <div style="height:420px;padding:12px 14px;display:flex;flex-direction:column;">
+    <div style="height:var(--body-h);padding:12px 14px;display:flex;flex-direction:column;">
       <div style="display:flex;align-items:center;gap:8px;">
         <div style="font-size:15px;font-weight:500;">Choose a package</div>
         <div style="flex:1"></div>
@@ -69,7 +69,7 @@ export function firmwareScreen(s) {
                     text-overflow:ellipsis;white-space:nowrap;">${esc(c.detail)}</div>
       </div>`).join("");
     return `
-    <div style="height:420px;padding:12px 14px;display:flex;flex-direction:column;">
+    <div style="height:var(--body-h);padding:12px 14px;display:flex;flex-direction:column;">
       <div style="display:flex;align-items:center;gap:8px;">
         <div style="font-size:15px;font-weight:500;">Firmware</div>
         <div style="flex:1"></div>
@@ -116,7 +116,7 @@ export function firmwareScreen(s) {
     </div>`;
 
   return `
-  <div style="height:420px;padding:12px 14px;display:flex;flex-direction:column;">
+  <div style="height:var(--body-h);padding:12px 14px;display:flex;flex-direction:column;">
     <div style="display:flex;align-items:center;gap:8px;">
       <div style="font-size:15px;font-weight:500;">Firmware</div>
       <div style="font-size:11px;color:var(--fg-mute);font-family:var(--mono);">

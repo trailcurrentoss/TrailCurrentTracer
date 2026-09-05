@@ -181,7 +181,7 @@ export function settingsHints(s) {
 export function settingsScreen(s) {
   const gs = groups(s);
   if (!gs.length) {
-    return `<div style="height:420px;display:flex;align-items:center;
+    return `<div style="height:var(--body-h);display:flex;align-items:center;
       justify-content:center;color:var(--fg-mute);font-size:12px;">Loading settings…</div>`;
   }
 
@@ -208,7 +208,7 @@ export function settingsScreen(s) {
       </div>`;
     }).join("");
     return `
-    <div style="height:420px;padding:12px 14px;display:flex;flex-direction:column;">
+    <div style="height:var(--body-h);padding:12px 14px;display:flex;flex-direction:column;">
       <div style="display:flex;align-items:center;gap:8px;">
         <div style="font-size:15px;font-weight:500;">Settings</div>
         <div style="flex:1"></div>
@@ -225,7 +225,7 @@ export function settingsScreen(s) {
       : `<div style="color:var(--fg-mute);font-size:12px;padding:12px 2px;">
            No settings match "${settingsUi.query}".</div>`;
     return `
-    <div style="height:420px;padding:12px 14px;display:flex;flex-direction:column;">
+    <div style="height:var(--body-h);padding:12px 14px;display:flex;flex-direction:column;">
       <div style="display:flex;align-items:center;gap:8px;">
         <div style="font-size:15px;font-weight:500;">Search settings</div>
       </div>
@@ -245,7 +245,7 @@ export function settingsScreen(s) {
   const g = gs[settingsUi.group];
   const rows = g.searchIndex.map((item, i) => rowHtml(s, item, i)).join("");
   return `
-  <div style="height:420px;padding:12px 14px;display:flex;flex-direction:column;">
+  <div style="height:var(--body-h);padding:12px 14px;display:flex;flex-direction:column;">
     <div style="display:flex;align-items:center;gap:8px;">
       <div style="color:var(--fg-dim);">${icon(g.meta.icon, 16)}</div>
       <div style="font-size:15px;font-weight:500;">${g.meta.title}</div>
@@ -299,7 +299,7 @@ function pickerOverlay(s) {
 
   if (p.loading) {
     return `
-    <div style="height:420px;padding:12px 14px;display:flex;flex-direction:column;
+    <div style="height:var(--body-h);padding:12px 14px;display:flex;flex-direction:column;
                 align-items:center;justify-content:center;gap:10px;">
       <div style="color:var(--tc-primary);animation:tcspin 1s linear infinite;">
         ${icon("sync-outline", 22)}</div>
@@ -308,7 +308,7 @@ function pickerOverlay(s) {
   }
   if (p.error) {
     return `
-    <div style="height:420px;padding:12px 14px;display:flex;flex-direction:column;">
+    <div style="height:var(--body-h);padding:12px 14px;display:flex;flex-direction:column;">
       <div style="font-size:15px;font-weight:500;">${p.label}</div>
       <div style="margin-top:12px;padding:9px 12px;border-radius:8px;
                   background:rgba(255,84,83,0.14);border:1px solid var(--tc-danger);
@@ -342,7 +342,7 @@ function pickerOverlay(s) {
          Nothing matches "${p.query}".</div>`;
 
   return `
-  <div style="height:420px;padding:12px 14px;display:flex;flex-direction:column;">
+  <div style="height:var(--body-h);padding:12px 14px;display:flex;flex-direction:column;">
     <div style="display:flex;align-items:center;gap:8px;">
       <div style="font-size:15px;font-weight:500;">${p.label}</div>
       <div style="flex:1"></div>
@@ -378,7 +378,7 @@ function editOverlay(s) {
     ? `<div style="font-size:11px;color:var(--tc-info);margin-top:4px;">
          Optional — leave blank to skip.</div>` : "";
   return `
-  <div style="height:420px;padding:12px 14px;display:flex;flex-direction:column;">
+  <div style="height:var(--body-h);padding:12px 14px;display:flex;flex-direction:column;">
     <div style="font-size:15px;font-weight:500;">${e.label}</div>
     ${help}${example}${optional}
     <div style="margin-top:12px;padding:12px;background:var(--bg-1);

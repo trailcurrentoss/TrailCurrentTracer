@@ -63,7 +63,7 @@ export function networkScreen(state) {
        </div>`;
 
   return `
-  <div style="height:420px;padding:12px 14px 16px;display:flex;flex-direction:column;">
+  <div style="height:var(--body-h);padding:12px 14px 16px;display:flex;flex-direction:column;">
     <div style="display:flex;align-items:center;gap:8px;">
       <div style="font-size:15px;font-weight:500;">Network</div>
       <div style="flex:1"></div>

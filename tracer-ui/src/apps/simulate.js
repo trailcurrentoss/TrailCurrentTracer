@@ -51,7 +51,7 @@ export function simulateScreen(s) {
   const d = (s.modules.simulate && s.modules.simulate.data) || {};
 
   if (!mods.length) {
-    return `<div style="height:420px;display:flex;align-items:center;
+    return `<div style="height:var(--body-h);display:flex;align-items:center;
        justify-content:center;color:var(--fg-mute);font-size:12px;">
        Loading CAN database…</div>`;
   }
@@ -82,7 +82,7 @@ export function simulateScreen(s) {
     }).join("");
 
     return `
-    <div style="height:420px;padding:12px 14px;display:flex;flex-direction:column;">
+    <div style="height:var(--body-h);padding:12px 14px;display:flex;flex-direction:column;">
       <div style="display:flex;align-items:center;gap:8px;">
         <div style="font-size:15px;font-weight:500;">${esc(f.name)}</div>
         <div style="font-size:11px;color:var(--fg-mute);font-family:var(--mono);">${f.hex}</div>
@@ -115,7 +115,7 @@ export function simulateScreen(s) {
       </div>
       ${dirBadge(f.direction)}`, i)).join("");
     return `
-    <div style="height:420px;padding:12px 14px;display:flex;flex-direction:column;">
+    <div style="height:var(--body-h);padding:12px 14px;display:flex;flex-direction:column;">
       <div style="display:flex;align-items:center;gap:8px;">
         <div style="font-size:15px;font-weight:500;">${esc(mod.label)}</div>
         <div style="flex:1"></div>
@@ -136,7 +136,7 @@ export function simulateScreen(s) {
     <div style="color:var(--fg-mute);">${icon("chevron-forward", 15)}</div>`, i)).join("");
 
   return `
-  <div style="height:420px;padding:12px 14px;display:flex;flex-direction:column;">
+  <div style="height:var(--body-h);padding:12px 14px;display:flex;flex-direction:column;">
     <div style="display:flex;align-items:center;gap:8px;">
       <div style="font-size:15px;font-weight:500;">Simulate</div>
       <div style="font-size:11px;color:var(--fg-mute);">

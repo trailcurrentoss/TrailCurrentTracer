@@ -73,7 +73,7 @@ export function moduleDebugScreen(s) {
            color:${l.level === "meta" ? "var(--tc-primary)" : "var(--fg)"};">
         ${esc(l.text) || "&nbsp;"}</div>`).join("");
     return `
-    <div style="height:420px;padding:9px 11px 34px;display:flex;
+    <div style="height:var(--body-h);padding:9px 11px 34px;display:flex;
                 flex-direction:column;">
       <div style="display:flex;align-items:center;gap:7px;">
         <div style="color:var(--tc-warning);display:flex;
@@ -105,7 +105,7 @@ export function moduleDebugScreen(s) {
          </div>`;
 
     return `
-    <div style="height:420px;padding:11px 13px 34px;display:flex;
+    <div style="height:var(--body-h);padding:11px 13px 34px;display:flex;
                 flex-direction:column;">
       <div style="display:flex;align-items:center;gap:8px;">
         <div style="font-size:15px;font-weight:500;">Module Debug</div>
@@ -149,7 +149,7 @@ export function moduleDebugScreen(s) {
         style="background:var(--tc-success);color:#000;">&nbsp;</span></div>`;
 
   return `
-  <div style="height:420px;padding:9px 11px 34px;display:flex;
+  <div style="height:var(--body-h);padding:9px 11px 34px;display:flex;
               flex-direction:column;">
     <div style="display:flex;align-items:center;gap:7px;">
       <div style="width:7px;height:7px;border-radius:50%;

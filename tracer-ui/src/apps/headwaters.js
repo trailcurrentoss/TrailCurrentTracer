@@ -68,7 +68,7 @@ export function headwatersScreen(s) {
   if (!mod || mod.state === "starting") return loading("Reaching Headwaters…");
   if (mod.state !== "ok") {
     return `
-    <div style="height:420px;display:flex;flex-direction:column;
+    <div style="height:var(--body-h);display:flex;flex-direction:column;
                 align-items:center;justify-content:center;gap:10px;padding:24px;">
       <div style="color:var(--tc-danger);">${icon("alert-circle", 44)}</div>
       <div style="font-size:15px;">Headwaters unreachable</div>
@@ -85,7 +85,7 @@ export function headwatersScreen(s) {
   // empty dashboard that looks broken.
   if (!m) {
     return `
-    <div style="height:420px;display:flex;flex-direction:column;
+    <div style="height:var(--body-h);display:flex;flex-direction:column;
                 align-items:center;justify-content:center;gap:10px;padding:30px;">
       <div style="color:var(--tc-warning);">${icon("server", 40)}</div>
       <div style="font-size:14px;">${d.host || "Headwaters"} is reachable</div>
@@ -246,7 +246,7 @@ export function headwatersScreen(s) {
     </div>`;
 
   return `
-  <div style="height:420px;padding:8px 10px 34px;display:flex;
+  <div style="height:var(--body-h);padding:8px 10px 34px;display:flex;
               flex-direction:column;gap:7px;overflow:hidden;">
     ${skew}
     <div style="display:flex;align-items:center;gap:8px;">

@@ -30,7 +30,7 @@ export function captureScreen(s) {
         Press Start to play</div>`;
     const pct = pb.total ? Math.round((pb.pos / pb.total) * 100) : 0;
     return `
-    <div style="height:420px;padding:12px 14px;display:flex;flex-direction:column;">
+    <div style="height:var(--body-h);padding:12px 14px;display:flex;flex-direction:column;">
       <div style="display:flex;align-items:center;gap:8px;">
         <div style="font-size:15px;font-weight:500;">Playback</div>
         <div style="font-size:11px;color:var(--fg-mute);font-family:var(--mono);">${esc(pb.file)}</div>
@@ -80,7 +80,7 @@ export function captureScreen(s) {
       text-align:center;">No captures yet — press X to record</div>`;
 
   return `
-  <div style="height:420px;padding:12px 14px;display:flex;flex-direction:column;">
+  <div style="height:var(--body-h);padding:12px 14px;display:flex;flex-direction:column;">
     <div style="display:flex;align-items:center;gap:8px;">
       <div style="font-size:15px;font-weight:500;">Capture</div>
       ${m && m.busy ? spinner(13, m.busy_note) : ""}

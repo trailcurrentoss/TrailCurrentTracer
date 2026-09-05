@@ -115,9 +115,10 @@ fastboot noswap ro root=… rootfstype=ext4 rootwait
 cfg80211.ieee80211_regdom=US
 ```
 
-None of `quiet` / `loglevel=0` / `vt.global_cursor_default=0` / `logo.nologo` /
-`console=tty3` / `fastboot` / `noswap` / `ro` / `rootfstype=ext4` is applied by
-the current build. The rationale still stands and is kept for whoever
+Of these, `vt.global_cursor_default=0` **is** applied — `configure-splash` adds
+it along with the two `fullscreen_logo` parameters. None of `quiet` /
+`loglevel=0` / `logo.nologo` / `console=tty3` / `fastboot` / `noswap` / `ro` /
+`rootfstype=ext4` is. The rationale still stands and is kept for whoever
 implements it:
 
 - `console=tty3` would move any remaining kernel output off the panel entirely,
@@ -127,6 +128,58 @@ implements it:
   boot.
 - `ro` belongs with the read-only-rootfs work in §7, which is also not yet
   implemented.
+- **`logo.nologo` must NOT be added.** It suppresses the kernel logo, and the
+  Tracer splash *is* the kernel logo — `fullscreen_logo=1` replaces the
+  raspberry with `logo.tga` rather than drawing alongside it. Adding
+  `logo.nologo` removes our splash and leaves a black panel.
+
+### 2.1 The Pi branding before our logo is NOT on the SD card
+
+**Open — needs a decision, see below.**
+
+On the unit today the panel shows a white Raspberry Pi screen with boot status
+and file-read progress, and only then the Tracer logo. Nothing in `config.txt`
+or `cmdline.txt` will remove it, and time spent there is wasted:
+
+| Stage | Owns the display | Where its config lives |
+|---|---|---|
+| SoC ROM → **bootloader** | The white Pi diagnostics screen | **SPI EEPROM on the board** |
+| `start.elf` firmware | Rainbow splash | `config.txt` — already suppressed by `disable_splash=1` |
+| Kernel / DRM | Tracer logo | `cmdline.txt` `fullscreen_logo=1` |
+
+The rainbow is already gone (`disable_splash=1`, §1). What remains is the
+**bootloader's own HDMI diagnostics display**, which runs before `config.txt`
+has been read by anything. It lives in the Pi 5's SPI EEPROM, so it is a
+property of *the board*, not of the image — reflashing the SD card cannot
+change it, and a freshly flashed unit will show it again.
+
+The bootloader config is inspected and edited with `rpi-eeprom-config`, which
+is already in the image (`rpi-eeprom`). The option that governs whether the
+bootloader brings up HDMI at all is `DISABLE_HDMI`. Read the board's current
+config before changing anything:
+
+```
+sudo rpi-eeprom-config
+```
+
+**This has a real cost and is why it is not done unilaterally:** suppressing the
+bootloader's HDMI output also suppresses its error reporting. A unit that fails
+to find bootable media currently says so on the panel; with HDMI disabled at
+that stage it shows nothing at all, and a dead SD card becomes indistinguishable
+from dead hardware in the field.
+
+Two ways to apply it, once the trade is accepted:
+
+1. **Per board, at provisioning** — an explicit step in the build/flash
+   procedure. Honest about the fact that it is a board-level change, and keeps
+   it out of the runtime image.
+2. **A first-boot service in the image** that applies the EEPROM config and
+   disables itself. Makes a fresh flash self-provisioning, at the cost of the
+   image silently writing the board's firmware — which is exactly the kind of
+   invisible, hard-to-reverse change this document exists to prevent.
+
+Option 1 is preferred unless units are being produced in enough volume that the
+manual step is the bottleneck.
 
 ## 3. Splash
 
@@ -309,20 +362,20 @@ at three layers:
 
 ## 6. Trimmed units
 
-Nine units disabled, per [`image/layer/tracer-base.yaml`](../image/layer/tracer-base.yaml):
+Seven units disabled, per [`image/layer/tracer-base.yaml`](../image/layer/tracer-base.yaml):
 
 | Disabled | Why |
 |---|---|
 | `getty@tty1` | Would draw a login prompt on the panel. Criterion 1. |
 | `ModemManager` | No cellular modem; it probes serial devices at boot and costs time. |
-| `avahi-daemon.service` + `avahi-daemon.socket` | Tracer runs its own Zeroconf in `tracerd.discovery`; two mDNS responders on one host conflict over the `.local` namespace. The socket has to go too, or socket activation resurrects the daemon. |
 | `unattended-upgrades` | A field tool must not change underneath a technician. |
 | `triggerhappy` | Would consume the same evdev devices `tracerd.input` owns. |
 | `bluetooth` | Unused; frees the UART and some boot time. |
 | `apt-daily.timer` + `apt-daily-upgrade.timer` | Wakes a fixed-function device to do nothing. |
 
-And one **enabled**: `seatd.service` — the prerequisite of
-`tracer-ui.service`'s `After=seatd.service`; Cage gets its seat from it.
+And two **enabled**: `seatd.service` — the prerequisite of
+`tracer-ui.service`'s `After=seatd.service`; Cage gets its seat from it — and
+`avahi-daemon.service`, see below.
 
 **`systemd-timesyncd` is deliberately kept.** It used to be disabled when
 chrony was the time daemon; chrony is gone from the package set, so disabling
@@ -331,9 +384,52 @@ cosmetic here — it breaks TLS to the Headwaters broker ("certificate is not
 yet valid") and makes captures impossible to line up against Headwaters' own
 logs. See the comment at the disable block in `tracer-base.yaml`.
 
-`avahi-daemon` deserves emphasis: leaving it enabled alongside the daemon's own
-Zeroconf is the kind of conflict that produces intermittent, hard-to-reproduce
-discovery failures in the field.
+**`avahi-daemon` is deliberately kept, and this one was learned the hard way.**
+
+It used to be disabled here, justified as "Tracer runs its own Zeroconf in
+`tracerd.discovery`, and two responders conflict over `.local`". That premise
+was simply false. `tracerd` has no Zeroconf implementation and no `zeroconf`
+dependency — [`discovery.py`](../tracerd/tracerd/modules/discovery.py) delegates
+every browse to Headwaters over MQTT and does no multicast itself. So the
+disable did not resolve a conflict; it removed the only mDNS resolver on the
+unit.
+
+The cost was the product's primary connection. `settings.json` defaults the
+broker to `headwaters.local:8883` and `headwaters_host` to `headwaters.local`,
+so with no responder those names resolved nowhere:
+
+```
+WARNING tracerd.mod: headwaters: unavailable — headwaters not reachable
+WARNING tracerd.mod: mqtt: degraded — [Errno -3] Temporary failure in name resolution
+```
+
+What made it expensive to diagnose is that everything *around* it looked
+healthy — and still does in that journal: NetworkManager associated, DHCP
+returned a lease, `systemd-resolved` came up with working upstream servers, and
+the Wi-Fi screen reported all four tiles green. Nothing on the unit pointed at
+name resolution, and `net.py`'s own reachability check advertises a
+"`headwaters.local` resolves — mDNS" line for a capability the image had
+removed.
+
+Three pieces are required and each is silent on its own:
+
+| Piece | Without it |
+|---|---|
+| `avahi-daemon` enabled | Nothing answers `.local` |
+| `libnss-mdns` installed | glibc has no way to ask avahi |
+| `mdns4_minimal [NOTFOUND=return]` in `/etc/nsswitch.conf` `hosts:` | Lookups never reach the module, and `.local` leaks to unicast DNS |
+
+`[NOTFOUND=return]` is not decoration. It stops a negative mDNS answer from
+falling through to the upstream resolver, which is the difference between a
+switched-off Headwaters failing instantly and every lookup stalling for the DNS
+timeout — a UI that reads as hung rather than disconnected.
+
+`systemd-resolved` stays for unicast DNS but has `MulticastDNS=no`
+(`/etc/systemd/resolved.conf.d/10-tracer-mdns.conf`), since it and avahi would
+otherwise contend for UDP 5353.
+
+Keeping avahi also publishes the unit as `tracer.local`, which is how the bench
+should reach it for deploys rather than hardcoding an address.
 
 ### One manager of wlan0 — do not undo any corner of this
 

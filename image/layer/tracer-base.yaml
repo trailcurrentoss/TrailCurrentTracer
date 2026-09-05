@@ -69,6 +69,37 @@ mmdebstrap:
     # bug in the net and Date & Time screens.
     - polkitd
 
+    # ── mDNS: the ONLY way `headwaters.local` resolves ────────────────
+    # Every default in settings.json points at a `.local` name — broker
+    # `headwaters.local:8883` and `headwaters_host: headwaters.local` — so
+    # without an mDNS resolver the product's primary connection cannot be
+    # made at all. That is exactly how it shipped: the first booting image
+    # had `hosts: files dns` in /etc/nsswitch.conf and no mDNS anywhere, so
+    # every lookup of headwaters.local went out as a unicast DNS query, the
+    # router answered nothing for `.local`, and the operator saw
+    #   mqtt: degraded — [Errno -3] Temporary failure in name resolution
+    # with the Wi-Fi screen simultaneously reporting a healthy association,
+    # a DHCP lease and working upstream DNS. Nothing on the unit named the
+    # actual missing piece.
+    #
+    # Why avahi rather than systemd-resolved's own mDNS: resolved IS present
+    # and running, but the image has no libnss-resolve, so glibc never talks
+    # to it over NSS — lookups reach it only through the 127.0.0.53 stub,
+    # where `.local` handling depends on a per-link MulticastDNS setting that
+    # NetworkManager never sets. Avahi + libnss-mdns is the combination
+    # Raspberry Pi OS ships and the one Headwaters' own discovery advertises
+    # into, so it is the tested path rather than the clever one.
+    #
+    # It also makes the unit resolvable AS `tracer.local`, which is how the
+    # bench reaches it for deploys — today that needs a hardcoded IP.
+    #
+    # These two must arrive together. libnss-mdns without avahi-daemon is an
+    # NSS module with no responder behind it: lookups do not fail fast, they
+    # stall until the module gives up, so the symptom changes from a clear
+    # error to a UI that hangs on every Headwaters call.
+    - avahi-daemon
+    - libnss-mdns
+
     # ── Headwaters access (docs/api.md §4.5) ─────────────────────────
     # Tracer reads container state and pulls logs over SSH/SCP. This is the
     # client side only; nothing is installed on Headwaters.
@@ -286,6 +317,47 @@ mmdebstrap:
         > "$1/etc/NetworkManager/conf.d/10-tracer-wifi.conf"
       chmod 644 "$1/etc/NetworkManager/conf.d/10-tracer-wifi.conf"
 
+    # ── One mDNS responder, and glibc actually asking it ─────────────
+    # Two halves, and BOTH are silent when missing.
+    #
+    # Half one: avahi-daemon answers .local, but nothing consults it until
+    # `mdns4_minimal` is in the hosts line of /etc/nsswitch.conf. libnss-mdns'
+    # postinst normally writes that itself, which is precisely why it is not
+    # left to it here — the same assumption about systemd-resolved's postinst
+    # is why the first image shipped with a bare `files dns` and could not
+    # resolve the one hostname the product is built around.
+    #
+    # `[NOTFOUND=return]` is load-bearing and must follow mdns4_minimal. It
+    # stops a negative mDNS answer for a `.local` name from falling through to
+    # unicast DNS, where the query leaks to the upstream resolver and waits
+    # out its timeout. Without it, a Headwaters box that is simply switched
+    # off costs seconds per lookup instead of failing immediately, and the GUI
+    # reads as hung rather than disconnected.
+    #
+    # Half two: avahi and systemd-resolved both want UDP 5353. resolved is
+    # already installed and enabled by systemd-net-min, so its multicast
+    # listener is turned off explicitly here, leaving avahi the sole
+    # responder. resolved keeps doing unicast DNS, which it does correctly.
+    - |
+      fail() { echo "TRACER LAYER FAILED: $*" >&2; exit 1; }
+      NSS="$1/etc/nsswitch.conf"
+      test -f "$NSS" || fail "no /etc/nsswitch.conf in the image: name resolution is unconfigured"
+      if ! grep -qE '^hosts:.*mdns4_minimal' "$NSS"; then
+        sed -i -E 's/^(hosts:[[:space:]]+)files/\1files mdns4_minimal [NOTFOUND=return]/' "$NSS"
+      fi
+      grep -qE '^hosts:.*files[[:space:]]+mdns4_minimal[[:space:]]+\[NOTFOUND=return\].*[[:space:]]dns' "$NSS" \
+        || fail "hosts line is not 'files mdns4_minimal [NOTFOUND=return] ... dns': got '$(grep '^hosts:' "$NSS")'"
+      # The NSS module the line above names has to exist, or every lookup
+      # falls back with no mDNS at all and nothing says so.
+      ls "$1"/usr/lib/*/libnss_mdns4_minimal.so.2 >/dev/null 2>&1 \
+        || fail "libnss_mdns4_minimal.so.2 missing: the hosts line names a module that is not installed"
+      test -x "$1/usr/sbin/avahi-daemon" \
+        || fail "avahi-daemon missing: nothing would answer the mDNS queries nsswitch now sends"
+      install -d -m755 "$1/etc/systemd/resolved.conf.d"
+      printf '# Tracer: avahi owns 5353. See image/layer/tracer-base.yaml.\n[Resolve]\nMulticastDNS=no\n' \
+        > "$1/etc/systemd/resolved.conf.d/10-tracer-mdns.conf"
+      chmod 644 "$1/etc/systemd/resolved.conf.d/10-tracer-mdns.conf"
+
     # ── Power button: ask before shutting down ───────────────────────
     # logind's default HandlePowerKey=poweroff powers the unit off on a single
     # short press with no confirmation, which is wrong for a handheld tool that
@@ -383,8 +455,22 @@ mmdebstrap:
     - |
       chroot "$1" systemctl disable getty@tty1.service            || true
       chroot "$1" systemctl disable ModemManager.service          || true
-      chroot "$1" systemctl disable avahi-daemon.service          || true
-      chroot "$1" systemctl disable avahi-daemon.socket           || true
+      # avahi-daemon is deliberately NOT disabled, and this line is left here
+      # as a headstone because disabling it looks like an obvious boot-time win
+      # and costs the product its primary connection.
+      #
+      # It was trimmed here as "zeroconf we don't use". Tracer uses it for the
+      # only hostname that matters: every Headwaters default in settings.json
+      # is a .local name. With the responder off, the unit associates, gets a
+      # lease, resolves public DNS fine, and still cannot reach Headwaters —
+      # the GUI shows "mqtt: degraded — [Errno -3] Temporary failure in name
+      # resolution" while the Wi-Fi screen reports everything healthy.
+      # It also publishes tracer.local, which is how the bench reaches the
+      # unit without hardcoding an address.
+      #
+      # It costs roughly 100 ms of the 12 s budget. If that budget is ever
+      # genuinely threatened, take it from somewhere else.
+      chroot "$1" systemctl enable  avahi-daemon.service          || true
       chroot "$1" systemctl disable unattended-upgrades.service   || true
       # systemd-timesyncd is deliberately NOT disabled. It used to be, because
       # chrony was the time daemon; chrony is gone (see the packages section),
@@ -516,6 +602,22 @@ mmdebstrap:
         || fail "iwd.service not masked: a second supplicant would contend with wpa_supplicant for wlan0"
       ! test -e "$R/etc/systemd/network/02-wlan0.network" \
         || fail "02-wlan0.network still present: systemd-networkd would claim wlan0 away from NetworkManager"
+      # mDNS. Every Headwaters default in settings.json is a .local name, so an
+      # image that boots, associates and gets a lease is still a dead product
+      # if this is missing — which is how it shipped once. Assert the whole
+      # chain: the responder, the NSS module, the hosts line that connects
+      # them, and that resolved has been told to stay off 5353.
+      chroot "$R" dpkg-query -W -f='${Status}' avahi-daemon 2>/dev/null \
+        | grep -q '^install ok installed$' \
+        || fail "avahi-daemon not installed: headwaters.local cannot resolve, so the broker and every Headwaters call fail with 'Temporary failure in name resolution'"
+      ls "$R"/usr/lib/*/libnss_mdns4_minimal.so.2 >/dev/null 2>&1 \
+        || fail "libnss-mdns not installed: glibc has no way to ask avahi anything"
+      grep -qE '^hosts:.*mdns4_minimal[[:space:]]+\[NOTFOUND=return\]' "$R/etc/nsswitch.conf" \
+        || fail "nsswitch hosts line lacks mdns4_minimal [NOTFOUND=return]: .local lookups leak to unicast DNS and time out"
+      grep -q '^MulticastDNS=no' "$R/etc/systemd/resolved.conf.d/10-tracer-mdns.conf" 2>/dev/null \
+        || fail "resolved MulticastDNS not disabled: it and avahi would contend for UDP 5353"
+      chroot "$R" systemctl is-enabled avahi-daemon.service >/dev/null 2>&1 \
+        || fail "avahi-daemon.service not enabled: the responder would never start"
       # A cursor on a touchscreen kiosk is a defect. The UI's CSS cannot fix it
       # alone, so the pointer is removed at the udev layer; assert the rule and
       # its two guards survived, since a bad match here kills every button.

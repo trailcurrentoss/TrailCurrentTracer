@@ -38,7 +38,7 @@ export function terminalScreen(s) {
     <div style="white-space:pre;color:var(--fg-dim);">${esc(l) || "&nbsp;"}</div>`).join("");
 
   return `
-  <div style="height:420px;padding:10px 12px 12px;display:flex;
+  <div style="height:var(--body-h);padding:10px 12px 12px;display:flex;
               flex-direction:column;font-family:var(--mono);font-size:12px;
               line-height:17px;overflow:hidden;">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">

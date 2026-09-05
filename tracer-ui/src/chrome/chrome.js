@@ -1,5 +1,7 @@
-// Fixed chrome: status bar (top, 30px) and hint bar (bottom, 30px).
-// Geometry and colours are lifted from the design mock.
+// Fixed chrome: status bar (top) and hint bar (bottom). Both heights come from
+// --chrome-top / --chrome-bottom in tokens.css, which the app bodies size
+// themselves against via --body-h — do not write either number here.
+// Colours are lifted from the design mock.
 
 import { icon } from "../icons.js";
 
@@ -114,8 +116,8 @@ export function statusBar(state) {
   // supply, reinstate this from /sys/class/power_supply rather than guessing.
 
   return `
-  <div style="height:30px;display:flex;align-items:center;gap:10px;padding:0 12px;
-              background:var(--chrome-bg);backdrop-filter:blur(10px);
+  <div style="height:var(--chrome-top);display:flex;align-items:center;gap:10px;
+              padding:0 12px;background:var(--chrome-bg);backdrop-filter:blur(10px);
               border-bottom:1px solid var(--border);">
     <div style="font-size:12px;font-weight:500;letter-spacing:0.4px;">${clock()}</div>
     <div style="font-size:11px;color:var(--fg-mute);">${TITLES[state.screen] || "Tracer"}</div>
@@ -132,23 +134,53 @@ export function statusBar(state) {
   </div>`;
 }
 
+// Which legend entries are also BUTTONS you can press with a thumb.
+//
+// The hint bar used to be a pure legend — it told you Start opens and Select
+// goes back, and did nothing when touched. On a touchscreen that is a trap:
+// the labels look like controls, so they get tapped, and nothing happening
+// reads as a frozen device rather than as a caption.
+//
+// It matters more than polish here. The buttons hang off an RP2040 that can
+// strand itself in BOOTSEL (docs/controls.md), and when it does, touch is the
+// only way to drive the unit — including Back, which had no on-screen
+// equivalent anywhere.
+//
+// Entries absent from this map stay captions, because they are not single
+// buttons the daemon can be told about: "L/R" names a pair, and Esc / Enter /
+// Ctrl+C are keystrokes the terminal consumes in text mode, not nav buttons.
+// Rendering those as tappable would be the same lie in the other direction.
+const HINT_PRESS = {
+  Start: "start", Select: "select",
+  A: "a", B: "b", X: "x", Y: "y",
+};
+
 export function hintBar(state, override) {
   const hints = override || HINTS[state.screen] || [];
   const items = hints.map(([btn, label]) => {
     const [bg, fg] = BTN_COLORS[btn] || ["#2a2a2a", "#aaa"];
+    const press = HINT_PRESS[btn];
+    // The whole cell is the hit area, not the pill. The pill is 20px — a
+    // 2mm target on this panel — so hanging the tap off it would be a
+    // touch affordance you cannot reliably touch. Padding is what makes
+    // the target, so it is on the tappable element itself.
     return `
-      <div style="display:flex;align-items:center;gap:5px;">
-        <div style="height:17px;min-width:17px;padding:${btn.length > 2 ? "0 6px" : "0"};
+      <div ${press ? `data-hint="${press}" role="button" tabindex="-1"` : ""}
+           style="display:flex;align-items:center;gap:6px;height:100%;
+                  padding:0 8px;border-radius:var(--r-btn);
+                  ${press ? "" : "opacity:0.75;"}">
+        <div style="height:20px;min-width:20px;padding:${btn.length > 2 ? "0 7px" : "0"};
                     border-radius:var(--r-full);background:${bg};
-                    color:${fg};font-size:10px;font-weight:700;display:flex;
+                    color:${fg};font-size:11px;font-weight:700;display:flex;
                     align-items:center;justify-content:center;">${btn}</div>
-        <div style="font-size:11px;color:var(--fg-dim);">${label}</div>
+        <div style="font-size:11px;color:var(--fg-dim);white-space:nowrap;">${label}</div>
       </div>`;
   }).join("");
 
   return `
-  <div style="position:absolute;left:0;right:0;bottom:0;height:30px;display:flex;
-              align-items:center;gap:14px;padding:0 12px;background:var(--chrome-bg);
+  <div style="position:absolute;left:0;right:0;bottom:0;height:var(--chrome-bottom);
+              display:flex;align-items:stretch;gap:4px;padding:6px 8px;
+              background:var(--chrome-bg);
               backdrop-filter:blur(10px);border-top:1px solid var(--border);">
     ${items}
   </div>`;
@@ -157,7 +189,8 @@ export function hintBar(state, override) {
 export function toastEl(state) {
   if (!state.toast) return "";
   return `
-  <div style="position:absolute;left:50%;bottom:48px;transform:translateX(-50%);
+  <div style="position:absolute;left:50%;bottom:calc(var(--chrome-bottom) + 18px);
+              transform:translateX(-50%);
               background:var(--bg-2);border:1px solid var(--border);
               border-radius:var(--r-badge);padding:6px 14px;font-size:12px;
               color:var(--fg-dim);z-index:3;">${state.toast}</div>`;
